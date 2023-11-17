@@ -9,7 +9,7 @@ using std::endl;
 int main(int argc, char *argv[]) {
   using namespace apsc::LinearAlgebra;
 
-  constexpr uint32_t size = 10;
+  constexpr unsigned size = 10;
   MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::ROWMAJOR> A(size,
                                                                           size);
   Utils::default_spd_fill<MatrixWithVecSupport<double, ORDERING::ROWMAJOR>,

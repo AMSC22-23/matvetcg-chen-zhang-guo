@@ -21,7 +21,7 @@ template <typename Mat, typename Scalar> void default_spd_fill(Mat &m) {
   const Scalar lower_diagonal_value = static_cast<Scalar>(-1.0);
   const auto size = m.rows();
 
-  for (uint32_t i = 0; i < size; ++i) {
+  for (unsigned i = 0; i < size; ++i) {
     m(i, i) = diagonal_value;
     if (i > 0) {
       m(i, i - 1) = upper_diagonal_value;
