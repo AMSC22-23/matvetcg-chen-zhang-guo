@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: submodule init
-      run: git submodule update --init --recursive
+      run: git pull --recurse-submodules
     - name: objective_one
       run: cd src/objective_one && mkdir build && cd build && cmake .. && make
     - name: shared
