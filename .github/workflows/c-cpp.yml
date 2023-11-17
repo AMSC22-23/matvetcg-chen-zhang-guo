@@ -1,0 +1,21 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: submodule init
+      run: cd src/AMSC-CodeExamples &&  git submodule update --init --recursive && cd .. && cd ..
+    - name: objective_one
+      run: cd src/objective_one && mkdir build && cd build && cmake .. && make
+    - name: shared
+      run: cd src/shared && mkdir build && cd build && cmake .. && make
