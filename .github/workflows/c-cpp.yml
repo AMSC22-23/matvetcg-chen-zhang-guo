@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: submodule init
-      run: cd AMSC-CodeExamples && git pull --recurse-submodules && cd ..
+      run: cd src/AMSC-CodeExamples && git pull --recurse-submodules && cd .. && cd ..
     - name: objective_one
       run: cd src/objective_one && mkdir build && cd build && cmake .. && make
     - name: shared
