@@ -1,6 +1,5 @@
 #include <MatrixWithVecSupport.hpp>
 #include <Vector.hpp>
-#include <_types/_uint32_t.h>
 #include <cg.hpp>
 #include <iostream>
 
@@ -20,7 +19,7 @@ int cg_solve(Lhs &a, Rhs b, ExactSol &e) {
       double, apsc::LinearAlgebra::ORDERING::ROWMAJOR>
       P(Size, Size);
   Scalar one = static_cast<Scalar>(1.0);
-  for (uint32_t i = 0; i < Size; i++) {
+  for (unsigned i = 0; i < Size; i++) {
     P(i, i) = one;
   }
 
@@ -38,7 +37,7 @@ int cg_solve(Lhs &a, Rhs b, ExactSol &e) {
 int main(int argc, char *argv[]) {
   using namespace apsc::LinearAlgebra;
 
-  constexpr uint32_t size = 10;
+  constexpr unsigned size = 10;
   cout << "Creating a test matrix..." << endl;
   MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::ROWMAJOR> A(size,
                                                                           size);
