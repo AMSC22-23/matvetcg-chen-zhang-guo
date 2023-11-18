@@ -1,5 +1,5 @@
 #include <Eigen/Dense>
-#include <EigenMatrixMap.hpp>
+#include <EigenStructureMap.hpp>
 #include <Matrix/Matrix.hpp>
 #include <MatrixWithVecSupport.hpp>
 #include <Vector.hpp>
@@ -12,8 +12,13 @@ MatrixWithVecSupport<Scalar, Order>::solve(Vector<Scalar> const &v) {
   Vector<Scalar> x(MatrixWithVecSupport<Scalar, Order>::nRows,
                    static_cast<Scalar>(0.0));
   auto mat_map =
-      EigenMatrixMap<Scalar, MatrixWithVecSupport<Scalar, Order>::nRows,
-                     MatrixWithVecSupport<Scalar, Order>::nCols,
-                     MatrixWithVecSupport<Scalar, Order>>::create_map(*this);
+      EigenStructureMap<
+          Eigen::Matrix<Scalar, MatrixWithVecSupport<Scalar, Order>::nRows,
+                        MatrixWithVecSupport<Scalar, Order>::nCols>,
+          Scalar, decltype(*this), MatrixWithVecSupport<Scalar, Order>::nRows,
+          MatrixWithVecSupport<Scalar, Order>::nCols>::create_map(*this)
+          .structure();
+
+  Eigen::LDLT<decltype(mat_map)> spd_solver;
   return x;
 }

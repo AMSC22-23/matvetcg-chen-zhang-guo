@@ -5,29 +5,28 @@
 #include <cstddef>
 #include <type_traits>
 
-template<typename Scalar, std::size_t Rows, std::size_t Cols, typename MappedMatrix>
-class EigenMatrixMap
+template<typename EigenStructure, typename Scalar, typename MappedMatrix, std::size_t... Sizes>
+class EigenStructureMap
 {
 public:
   //TODO: consider using cpp concempts for MappedMatrix type
-  static EigenMatrixMap<Scalar, Rows, Cols, MappedMatrix>
+  static EigenStructureMap<EigenStructure, Scalar, MappedMatrix, Sizes...>
   create_map(MappedMatrix const &m) {
     Scalar* data = const_cast<Scalar*>(m.data()); //const versioon is called, why?
 
     static_assert(std::is_same_v<decltype(data), Scalar*>, "Mapping different scalar types");
-
-    return EigenMatrixMap<Scalar, Rows, Cols, MappedMatrix>(data);
+      return EigenStructureMap<EigenStructure, Scalar, MappedMatrix, Sizes...>(data);
   }
 
-  Eigen::Map<Eigen::Matrix<Scalar, Rows, Cols>>&
-  get_map() {
-    return matrix_map;
+  auto
+  structure() {
+    return structure_map;
   }
 
 protected:
-  EigenMatrixMap(Scalar* data) : matrix_map(data, Rows, Cols) {}
+    EigenStructureMap(Scalar* data) : structure_map(data, Sizes...) {}
 
-  Eigen::Map<Eigen::Matrix<Scalar, Rows, Cols>> matrix_map;
+    Eigen::Map<EigenStructure> structure_map;
 };
 
 #endif //EIGEN_MATRIX_MAP_HPP

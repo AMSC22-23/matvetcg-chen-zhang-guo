@@ -24,11 +24,11 @@ target_include_directories(vector_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/shared/
 )
 
-add_executable(eigen_matrix_map_test shared/matrix_map_test.cpp)
-target_include_directories(eigen_matrix_map_test PRIVATE
+add_executable(eigen_structure_map_test shared/eigen_structure_map_test.cpp)
+target_include_directories(eigen_structure_map_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/AMSC-CodeExamples/Examples/src/
 )
-target_include_directories(eigen_matrix_map_test PRIVATE
+target_include_directories(eigen_structure_map_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/shared/
 )
 
@@ -42,7 +42,7 @@ if(EIGEN3_FOUND)
     target_include_directories(objective_one PRIVATE
         ${EIGEN3_INCLUDE_DIR}
     )
-    target_include_directories(eigen_matrix_map_test PRIVATE
+    target_include_directories(eigen_structure_map_test PRIVATE
         ${EIGEN3_INCLUDE_DIR}
     )
     
