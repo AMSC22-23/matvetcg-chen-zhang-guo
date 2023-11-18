@@ -16,4 +16,4 @@ jobs:
     - name: submodule init
       run: cd src/AMSC-CodeExamples &&  git submodule update --init --recursive && cd .. && cd ..
     - name: make
-      run: mkdir build && cd build && cmake .. && make
+      run: cd src && mkdir build && cd build && cmake .. && make
