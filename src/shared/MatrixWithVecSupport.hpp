@@ -75,6 +75,8 @@ public:
     }
     return res;
   }
+
+  Vector<Scalar> solve(Vector<Scalar> const& b);
 };
 
 } // namespace apsc::LinearAlgebra
