@@ -44,10 +44,10 @@ public:
   template <typename InputVectorScalar>
   Vector<Scalar> operator*(Vector<InputVectorScalar> const &v) const {
 
-    ASSERT((Matrix<Scalar>::nCols == v.size()),
+    ASSERT((Matrix<Scalar, ORDER>::nCols == v.size()),
            "MatVetMul: Matrix columns != Vector rows");
 
-    Vector<Scalar> res(Matrix<Scalar>::nRows, static_cast<Scalar>(0));
+    Vector<Scalar> res(Matrix<Scalar, ORDER>::nRows, static_cast<Scalar>(0));
 
     if constexpr (ORDER == ORDERING::ROWMAJOR) {
       // loop over rows
