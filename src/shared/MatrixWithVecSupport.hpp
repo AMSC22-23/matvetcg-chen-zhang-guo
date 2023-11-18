@@ -83,7 +83,7 @@ public:
     Vector<Scalar> x(Matrix<SCALAR, ORDER>::nRows, static_cast<Scalar>(0.0));
 
     // map vector eigen interface
-    auto eigen_vec = EigenStructureMap<Eigen::Vector<Scalar, VecSize>, Scalar,
+    auto eigen_vec = EigenStructureMap<Eigen::Matrix<Scalar, VecSize, 1>, Scalar,
                                        decltype(v), VecSize>::create_map(v)
                          .structure();
 
@@ -96,7 +96,7 @@ public:
               .structure();
 
       // TODO: consider using ldlt for SPD
-      Eigen::Vector<Scalar, VecSize> res =
+      Eigen::Matrix<Scalar, VecSize, 1> res =
           eigen_mat.colPivHouseholderQr().solve(eigen_vec);
       const Scalar *buff = res.data();
       return Vector<Scalar>(buff, res.size());
@@ -107,7 +107,7 @@ public:
               .structure();
 
       // TODO: consider using ldlt for SPD
-      Eigen::Vector<Scalar, VecSize> res =
+      Eigen::Matrix<Scalar, VecSize, 1> res =
           eigen_mat.colPivHouseholderQr().solve(eigen_vec);
       const Scalar *buff = res.data();
       return Vector<Scalar>(buff, res.size());

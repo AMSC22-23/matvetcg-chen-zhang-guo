@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
   cout << "Mapped matrix" << endl << mapped_A.structure() << endl;
 
   Vector<double> b(size, 1.0);
-  auto mapped_b = EigenStructureMap<Eigen::Vector<double, size>, double, decltype(b), size>::create_map(b);
+  auto mapped_b = EigenStructureMap<Eigen::Matrix<double, size, 1>, double, decltype(b), size>::create_map(b);
   cout << "Original vector" << endl << b << endl;
   cout << "Mapped vector" << endl << mapped_b.structure() << endl;
   mapped_b.structure() *= 2.0;
