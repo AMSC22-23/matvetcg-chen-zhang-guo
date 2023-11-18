@@ -15,7 +15,5 @@ jobs:
     - uses: actions/checkout@v3
     - name: submodule init
       run: cd src/AMSC-CodeExamples &&  git submodule update --init --recursive && cd .. && cd ..
-    - name: objective_one
-      run: cd src/objective_one && mkdir build && cd build && cmake .. && make
-    - name: shared
-      run: cd src/shared && mkdir build && cd build && cmake .. && make
+    - name: make
+      run: mkdir build && cd build && cmake .. && make
