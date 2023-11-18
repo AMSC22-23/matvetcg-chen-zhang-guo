@@ -1,8 +1,16 @@
+/*
+ * EigenStructureMap.hpp
+ *
+ *  Created on: Nov 17, 2023
+ *      Author: Kaixi Matteo Chen
+ */
+
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
 #include <cassert>
 
+//Custom assertion supporting messages
 #define ASSERT(condition, message)                                             \
   do {                                                                         \
     if (!(condition)) {                                                        \

@@ -7,10 +7,12 @@
 
 #ifndef MATRIX_WITH_VEC_SUPPORT_HPP
 #define MATRIX_WITH_VEC_SUPPORT_HPP
-#include "utils.hpp"
+#include <Eigen/Dense>
+#include <EigenStructureMap.hpp>
 #include <Matrix/Matrix.hpp>
 #include <Vector.hpp>
 #include <cassert>
+#include <utils.hpp>
 // To avoid stupid warnings if I do not use openmp
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
@@ -76,7 +78,41 @@ public:
     return res;
   }
 
-  Vector<Scalar> solve(Vector<Scalar> const& b);
+  template <std::size_t MatRow, std::size_t MatCol, std::size_t VecSize>
+  Vector<Scalar> solve(Vector<Scalar> const &v) {
+    Vector<Scalar> x(Matrix<SCALAR, ORDER>::nRows, static_cast<Scalar>(0.0));
+
+    // map vector eigen interface
+    auto eigen_vec = EigenStructureMap<Eigen::Vector<Scalar, VecSize>, Scalar,
+                                       decltype(v), VecSize>::create_map(v)
+                         .structure();
+
+    // map matrix to eigen interface
+    if constexpr (ORDER == ORDERING::ROWMAJOR) {
+      auto eigen_mat =
+          EigenStructureMap<
+              Eigen::Matrix<Scalar, MatRow, MatCol, Eigen::RowMajor>, Scalar,
+              decltype(*this), MatRow, MatCol>::create_map(*this)
+              .structure();
+
+      // TODO: consider using ldlt for SPD
+      Eigen::Vector<Scalar, VecSize> res =
+          eigen_mat.colPivHouseholderQr().solve(eigen_vec);
+      const Scalar *buff = res.data();
+      return Vector<Scalar>(buff, res.size());
+    } else {
+      auto eigen_mat =
+          EigenStructureMap<Eigen::Matrix<Scalar, MatRow, MatCol>, Scalar,
+                            decltype(*this), MatRow, MatCol>::create_map(*this)
+              .structure();
+
+      // TODO: consider using ldlt for SPD
+      Eigen::Vector<Scalar, VecSize> res =
+          eigen_mat.colPivHouseholderQr().solve(eigen_vec);
+      const Scalar *buff = res.data();
+      return Vector<Scalar>(buff, res.size());
+    }
+  }
 };
 
 } // namespace apsc::LinearAlgebra

@@ -9,8 +9,10 @@
 #define VECTOR_HPP
 #include "utils.hpp"
 #include <algorithm>
+#include <cstddef>
 #include <exception>
 #include <iostream>
+#include <iterator>
 #include <numeric>
 #include <random>
 #include <type_traits>
@@ -54,6 +56,14 @@ public:
   Vector(Vector<Scalar> const &v) : vector_size(v.size()) {
     buffer.resize(v.size());
     std::copy(v.buffer.begin(), v.buffer.end(), buffer.begin());
+  }
+
+  /*!
+   * Move constructor.
+   * @param v The source vector
+   */
+  Vector(const Scalar* begin, const std::size_t length) : vector_size(length) {
+    buffer = std::vector(std::make_move_iterator(begin), std::make_move_iterator(begin + length));
   }
 
   /*!

@@ -1,15 +1,3 @@
-# Shared source code
-## Compilation
-For the following `cpp` files:
-- vector_test.cpp
-```
-- mkdir build
-- cd build
-- cmake ..
-- make
-```
+# Class usage example
 
-## Run
-```
-./your_target
-```
+In this directory custom `class` are available and related example usage `cpp` files.
