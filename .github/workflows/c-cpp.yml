@@ -13,6 +13,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: eigen3 installation
+      run: sudo apt update && sudo apt upgrade && sudo apt install libeigen3-dev
     - name: submodule init
       run: cd src/AMSC-CodeExamples &&  git submodule update --init --recursive && cd .. && cd ..
     - name: make
