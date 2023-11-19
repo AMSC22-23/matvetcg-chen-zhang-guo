@@ -21,13 +21,28 @@
 //
 //*****************************************************************
 
+#include "Matrix/Matrix.hpp"
+#include "MatrixWithVecSupport.hpp"
+#include <cstddef>
+#include <type_traits>
 namespace LinearAlgebra
 {
-template <class Matrix, class Vector, class Preconditioner>
+template <class Matrix, class Vector, class Preconditioner, std::size_t Size, typename Scalar>
 int
 CG(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
    int &max_iter, typename Vector::Scalar &tol)
 {
+  static_assert(
+      (std::is_base_of_v<
+           apsc::LinearAlgebra::MatrixWithVecSupport<
+               Scalar, apsc::LinearAlgebra::ORDERING::COLUMNMAJOR>,
+           Preconditioner> ||
+       std::is_base_of_v<apsc::LinearAlgebra::MatrixWithVecSupport<
+                             Scalar, apsc::LinearAlgebra::ORDERING::ROWMAJOR>,
+                         Preconditioner>),
+      "The input Preconditioner class does not derive from "
+      "MatrixWithVecSupport");
+
   using Real = typename Matrix::Scalar;
   Real   resid;
   Vector p(b.size());
@@ -51,7 +66,7 @@ CG(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
 
   for(int i = 1; i <= max_iter; i++)
     {
-      z = M.solve(r);
+      z = M.template solve<Size>(r);
       rho = r.dot(z);
 
       if(i == 1)
@@ -59,14 +74,14 @@ CG(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
       else
         {
           beta = rho / rho_1;
-          p = z + beta * p;
+          p = z + (p * beta);
         }
 
       q = A * p;
       alpha = rho / p.dot(q);
 
-      x += alpha * p;
-      r -= alpha * q;
+      x = x + (p * alpha);
+      r = r - (q * alpha);
 
       if((resid = r.norm() / normb) <= tol)
         {

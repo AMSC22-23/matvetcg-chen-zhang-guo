@@ -161,8 +161,7 @@ public:
   Scalar dot(Vector<InputVectorScalar> const &v) const {
     ASSERT(size() == v.size(), "DotProd: Vector sizes does not match");
     // TODO: check how to integrate MPI
-    return std::inner_product<std::vector<Scalar>::iterator,
-                              std::vector<InputVectorScalar>::iterator, Scalar>(
+    return std::inner_product(
         buffer.begin(), buffer.end(), v.buffer.begin(), static_cast<Scalar>(0));
   }
 
@@ -179,6 +178,20 @@ public:
   }
 
   /*!
+   * Multiplication by a scalar.
+   *
+   * @param value A scalar value.
+   * @return The result of scalar*v
+   */
+  Vector<Scalar> operator*(Scalar value) const {
+    // TODO: check how to integrate MPI
+    Vector<Scalar> res(*this);
+    std::transform(res.buffer.begin(), res.buffer.end(), res.buffer.begin(),
+                   [&value](auto &c) { return c * value; });
+    return res;
+  }
+
+  /*!
    * Addition with a apsc::LinearAlgebra::Vector.
    * The return type is coerent with the lhs vector type.
    *
@@ -192,7 +205,7 @@ public:
     ASSERT(res.size() >= v.size(),
            "Destination vector size is less that lhs vector size");
     std::transform(res.buffer.begin(), res.buffer.end(), v.buffer.begin(),
-                   res.buffer.begin(), std::plus<int>());
+                   res.buffer.begin(), std::plus<Scalar>());
     return res;
   }
 
@@ -210,7 +223,7 @@ public:
     ASSERT(res.size() >= v.size(),
            "Destination vector size is less that lhs vector size");
     std::transform(res.buffer.begin(), res.buffer.end(), v.buffer.begin(),
-                   res.buffer.begin(), std::minus<int>());
+                   res.buffer.begin(), std::minus<Scalar>());
     return res;
   }
 
@@ -226,11 +239,23 @@ public:
   }
 
   /*!
+   * Assignment operator.
+   *
+   * @param v The input vector.
+   */
+  void operator=(Vector<Scalar> const& v) {
+    // TODO: check how to integrate MPI
+    vector_size = v.size();
+    buffer.resize(vector_size);
+    std::copy(v.buffer.begin(), v.buffer.end(), buffer.begin());
+  }
+
+  /*!
    * Euclidean norm.
    *
    * @return The computed euclidean norm.
    */
-  Scalar norm() {
+  Scalar norm() const {
     return static_cast<Scalar>(std::sqrt(std::inner_product(
         buffer.begin(), buffer.end(), buffer.begin(), static_cast<Scalar>(0))));
   }

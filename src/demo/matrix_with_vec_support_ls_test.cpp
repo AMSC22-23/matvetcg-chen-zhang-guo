@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
   Vector<double> e(size, 1.0);
   Vector<double> b = A * e;
 
-  auto x = A.solve<size, size, size>(b);
+  auto x = A.solve<size>(b);
 
   cout << "Solution of " << endl << A << endl
        << "X" << endl

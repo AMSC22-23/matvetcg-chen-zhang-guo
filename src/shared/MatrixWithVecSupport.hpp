@@ -12,11 +12,13 @@
 #include <Matrix/Matrix.hpp>
 #include <Vector.hpp>
 #include <cassert>
+#include <cstddef>
 #include <utils.hpp>
 // To avoid stupid warnings if I do not use openmp
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 namespace apsc::LinearAlgebra {
+
 /*!
  * A full matrix with vector multiplication support for
  * apsc::LinearAlgebra::Vector
@@ -78,36 +80,37 @@ public:
     return res;
   }
 
-  template <std::size_t MatRow, std::size_t MatCol, std::size_t VecSize>
-  Vector<Scalar> solve(Vector<Scalar> const &v) {
+  template <std::size_t SystemSize>
+  Vector<Scalar> solve(Vector<Scalar> const &v) const {
     Vector<Scalar> x(Matrix<SCALAR, ORDER>::nRows, static_cast<Scalar>(0.0));
 
     // map vector eigen interface
-    auto eigen_vec = EigenStructureMap<Eigen::Matrix<Scalar, VecSize, 1>, Scalar,
-                                       decltype(v), VecSize>::create_map(v)
-                         .structure();
+    auto eigen_vec =
+        EigenStructureMap<Eigen::Matrix<Scalar, Eigen::Dynamic, 1>, Scalar,
+                          decltype(v), SystemSize>::create_map(v)
+            .structure();
 
     // map matrix to eigen interface
     if constexpr (ORDER == ORDERING::ROWMAJOR) {
       auto eigen_mat =
           EigenStructureMap<
-              Eigen::Matrix<Scalar, MatRow, MatCol, Eigen::RowMajor>, Scalar,
-              decltype(*this), MatRow, MatCol>::create_map(*this)
+              Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>, Scalar,
+              decltype(*this), SystemSize, SystemSize>::create_map(*this)
               .structure();
 
       // TODO: consider using ldlt for SPD
-      Eigen::Matrix<Scalar, VecSize, 1> res =
+      Eigen::Matrix<Scalar, Eigen::Dynamic, 1> res =
           eigen_mat.colPivHouseholderQr().solve(eigen_vec);
       const Scalar *buff = res.data();
       return Vector<Scalar>(buff, res.size());
     } else {
       auto eigen_mat =
-          EigenStructureMap<Eigen::Matrix<Scalar, MatRow, MatCol>, Scalar,
-                            decltype(*this), MatRow, MatCol>::create_map(*this)
+          EigenStructureMap<Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>, Scalar,
+                            decltype(*this), SystemSize, SystemSize>::create_map(*this)
               .structure();
 
       // TODO: consider using ldlt for SPD
-      Eigen::Matrix<Scalar, VecSize, 1> res =
+      Eigen::Matrix<Scalar, Eigen::Dynamic, 1> res =
           eigen_mat.colPivHouseholderQr().solve(eigen_vec);
       const Scalar *buff = res.data();
       return Vector<Scalar>(buff, res.size());

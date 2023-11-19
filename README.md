@@ -1,5 +1,7 @@
 # matvetcg-chen-zhang-guo
 
+A parallel MPI implementation of different iterative schemes.
+
 ## Compilation
 ```
 - mkdir build

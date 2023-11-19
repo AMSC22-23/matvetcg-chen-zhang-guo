@@ -15,6 +15,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/AMSC-CodeExamples/Examples/src/
 
 #Define executables
 add_executable(objective_one objective_one/main.cpp)
-add_executable(vector_test shared/vector_test.cpp)
-add_executable(eigen_structure_map_test shared/eigen_structure_map_test.cpp)
-add_executable(matrix_with_vec_support_ls_test shared/matrix_with_vec_support_ls_test.cpp)
+add_executable(vector_test demo/vector_test.cpp)
+add_executable(eigen_structure_map_test demo/eigen_structure_map_test.cpp)
+add_executable(matrix_with_vec_support_ls_test demo/matrix_with_vec_support_ls_test.cpp)
