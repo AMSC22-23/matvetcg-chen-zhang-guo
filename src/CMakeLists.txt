@@ -5,6 +5,9 @@ include(./cmake_shared/cmake-common.cmake)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Find MPI package
+find_package(MPI REQUIRED)
+
 SET(EIGEN3_DIR_LOCAL $ENV{EIGEN3_INCLUDE_DIR})        #local installation
 SET(EIGEN3_DIR_PCAFRICA $ENV{mkEigenInc})             #pcafrica/mk module
 SET(EIGEN3_DIR_GITHUB_ACTIONS "/usr/include/eigen3")  #Github actions server
@@ -12,9 +15,13 @@ SET(EIGEN3_DIR_GITHUB_ACTIONS "/usr/include/eigen3")  #Github actions server
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/AMSC-CodeExamples/Examples/src/
   ${CMAKE_CURRENT_SOURCE_DIR}/shared/ ${CMAKE_CURRENT_SOURCE_DIR}/algorithms/
   ${EIGEN3_DIR_LOCAL} ${EIGEN3_DIR_PCAFRICA} ${EIGEN3_DIR_GITHUB_ACTIONS})
+include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
 #Define executables
-add_executable(objective_one objective_one/main.cpp)
+add_executable(objective1 objective1/main.cpp)
+add_executable(objective2 objective2/main.cpp)
 add_executable(vector_test demo/vector_test.cpp)
 add_executable(eigen_structure_map_test demo/eigen_structure_map_test.cpp)
 add_executable(matrix_with_vec_support_ls_test demo/matrix_with_vec_support_ls_test.cpp)
+
+target_link_libraries(objective2 MPI::MPI_CXX)

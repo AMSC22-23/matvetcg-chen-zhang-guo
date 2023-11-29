@@ -9,6 +9,7 @@
 #define UTILS_HPP
 
 #include <cassert>
+#include <iostream>
 
 //Custom assertion supporting messages
 #define ASSERT(condition, message)                                             \
@@ -23,7 +24,7 @@
 namespace apsc::LinearAlgebra {
 namespace Utils {
 template <typename Mat, typename Scalar> void default_spd_fill(Mat &m) {
-  assert(m.rows() == m.cols() && "Must be a square matrix");
+  ASSERT((m.rows() == m.cols()), "The matrix must be squared!");
   const Scalar diagonal_value = static_cast<Scalar>(2.0);
   const Scalar upper_diagonal_value = static_cast<Scalar>(-1.0);
   const Scalar lower_diagonal_value = static_cast<Scalar>(-1.0);
