@@ -15,23 +15,21 @@ using std::endl;
 
 #define DEBUG 0
 
-//When called with MPI > 1 the `pa` is a submatrix of the original matrix
 template <typename MPILhs, typename Rhs, typename Scalar,
           int Size, typename MPIPrecon, typename ExactSol>
-int cg_solve_mpi(MPILhs &A, Rhs b, ExactSol &e, MPIPrecon P, const MPIContext mpi_ctx) {
-  // result vector
+int cg_solve_mpi(MPILhs &A, Rhs b, ExactSol &e, MPIPrecon /*P*/, const MPIContext mpi_ctx) {
   apsc::LinearAlgebra::Vector<Scalar> x(Size, static_cast<Scalar>(0.0));
   int max_iter = 10000;
   Scalar tol = 1e-18;
   
-  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-  auto result = LinearAlgebra::CG<MPILhs, Rhs, MPIPrecon, Size, Scalar>(
-      A, x, b, P, max_iter, tol, mpi_ctx, MPI_DOUBLE);
-  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-
-  std::cout << "rank = " << mpi_ctx.mpi_rank() << " CG time = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+  std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
+  auto result = LinearAlgebra::CG_no_precon<MPILhs, Rhs, Size, Scalar>(
+      A, x, b, max_iter, tol, mpi_ctx, MPI_DOUBLE);
+  std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
   
   if (mpi_ctx.mpi_rank() == 0) {
+    //We are assuming that each process takes more or less the same computational time
+    std::cout << "Elapsed time = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
     cout << "Solution with Conjugate Gradient:" << endl;
     cout << "iterations performed:                      " << max_iter << endl;
     cout << "tolerance achieved:                        " << tol << endl;
@@ -64,12 +62,12 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(mpi_comm, &mpi_rank);
   MPI_Comm_size(mpi_comm, &mpi_size);
 
-  constexpr unsigned size = 1000;
+  constexpr unsigned size = 2900;
   
   MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::ROWMAJOR> A(
       size, size);
   if (mpi_rank == 0) {
-    cout << "Creating a test matrix..." << endl;
+    cout << "Launching CG with problem (SPD matrix) size of " << size << endl;
     Utils::default_spd_fill<MatrixWithVecSupport<double, ORDERING::ROWMAJOR>,
                             double>(A);
   }

@@ -101,16 +101,10 @@ CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
           p = z + (p * beta);
         }
 
-      //TODO: do I need this?
-      MPI_Barrier(*mpi_comm);
-
       //MPI part start
       A.product(p);
       A.AllCollectGlobal(q);
       //MPI part end
-
-      //TODO: do I need this?
-      MPI_Barrier(*mpi_comm);
 
       alpha = rho / p.dot(q);
 
@@ -126,6 +120,79 @@ CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
 
       rho_1 = rho;
     }
+
+  tol = resid;
+  return 1;
+}
+
+template <class Matrix, class Vector, std::size_t Size, typename Scalar>
+int CG_no_precon(Matrix &A, Vector &x, const Vector &b, int &max_iter,
+                 typename Vector::Scalar &tol, const MPIContext mpi_ctx,
+                 MPI_Datatype mpi_datatype) {
+  using Real = typename Matrix::Scalar;
+
+  const int mpi_rank = mpi_ctx.mpi_rank();
+  const MPI_Comm* mpi_comm = mpi_ctx.mpi_comm();
+
+  Real   alpha, beta, resid, alpha_num, alpha_den, beta_num, beta_den;
+  Real   normb = b.norm();
+  Vector A_prod_d;
+  Vector d(b.size());
+  Vector r(b.size());
+
+  //MPI section start
+  A.product(x);
+  Vector AxX;
+  A.template collectGlobal<Vector>(AxX);
+  A.AllCollectGlobal(AxX);
+  //MPI section end
+  
+  //Initialise residual and direction
+  r = b - AxX;
+  d = r;
+
+  if(normb == 0.0) {
+    normb = 1.0;
+  }
+
+  if((resid = r.norm() / normb) <= tol) {
+    tol = resid;
+    max_iter = 0;
+    return 0;
+  }
+
+  for(int i = 1; i <= max_iter; i++) {
+    //alpha numerator
+    alpha_num = d.dot(r);
+    //alpha denominator
+    A.product(d);
+    A.AllCollectGlobal(A_prod_d);
+    alpha_den = d.dot(A_prod_d);
+    //alpha
+    alpha = alpha_num / alpha_den;
+
+    //update x
+    x = x + (d * alpha);
+    //update r
+    r = r - (A_prod_d * alpha);
+
+    //stop criteria
+    if((resid = r.norm() / normb) <= tol) {
+      tol = resid;
+      max_iter = i;
+      return 0;
+    }
+
+    //beta numerator
+    beta_num = A_prod_d.dot(r);
+    //beta denominator
+    beta_den = A_prod_d.dot(d);
+    //beta
+    beta = beta_num / beta_den;
+
+    //update d
+    d = r - (d * beta);
+  }
 
   tol = resid;
   return 1;
