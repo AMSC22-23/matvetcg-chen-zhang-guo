@@ -16,7 +16,7 @@ jobs:
     - name: eigen3 installation
       run: sudo apt update && sudo apt install libeigen3-dev && echo "Searching for eigen3..." && echo $EIGEN3_INCLUDE_DIR && dpkg -L libeigen3-dev && sudo apt-get install openmpi-bin
     - name: MPI installation
-      run: sudo apt install openmpi-bin
+      run: sudo apt install libopenmpi-dev
     - name: MPI info
       run: ompi_info
     - name: ll lib dir
