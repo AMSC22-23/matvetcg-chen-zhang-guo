@@ -22,7 +22,7 @@ jobs:
     - name: ll lib dir
       run: ls -la /usr/lib
     - name: search MPI lib
-      run: find /usr/lib -name "*mpi.so"
+      run: find /usr/lib -name "*mpi*.so"
     - name: submodule init
       run: cd src/AMSC-CodeExamples &&  git submodule update --init --recursive && cd .. && cd ..
     - name: make
