@@ -4,7 +4,7 @@ project(MatVetCgShared LANGUAGES CXX C)
 include(./cmake_shared/cmake-common.cmake)
 
 SET(EIGEN3_INCLUDE_DIR "/usr/include/eigen3")  #Github actions server
-SET(MPI_INCLUDE_DIR "/usr/src/linux-azure-6.2-headers-6.2.0-1016/include/linux/")
+SET(MPI_INCLUDE_DIR "/usr/lib/x86_64-linux-gnu/openmpi/include")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/AMSC-CodeExamples/Examples/src/
   ${CMAKE_CURRENT_SOURCE_DIR}/shared/ ${CMAKE_CURRENT_SOURCE_DIR}/algorithms/
@@ -18,4 +18,4 @@ add_executable(vector_test demo/vector_test.cpp)
 add_executable(eigen_structure_map_test demo/eigen_structure_map_test.cpp)
 add_executable(matrix_with_vec_support_ls_test demo/matrix_with_vec_support_ls_test.cpp)
 
-target_link_libraries(objective2 MPI::MPI_CXX)
+target_link_libraries(objective2 "/usr/lib/x86_64-linux-gnu/libmpi.so")
