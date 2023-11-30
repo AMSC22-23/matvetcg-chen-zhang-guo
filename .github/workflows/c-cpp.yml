@@ -18,8 +18,8 @@ jobs:
     - name: MPI installation
       run: sudo apt install openmpi-bin
     - name: search MPI lib
-      run: find / -name "libmpi.so"
+      run: find /usr/src/ -name "*mpi.so"
     - name: submodule init
       run: cd src/AMSC-CodeExamples &&  git submodule update --init --recursive && cd .. && cd ..
     - name: make
-      run: cd src && mkdir build && cd build && cmake .. && make
+      run: cd src && rm CMakeLists.txt && mv CMakeLists_GITHUBWORKFLOW.txt CMakeLists.txt && mkdir build && cd build && cmake .. && make
