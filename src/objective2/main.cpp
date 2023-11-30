@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <iostream>
+#include <chrono>
 
 #include <MPIContext.hpp>
 #include <MPIMatrix.hpp>
@@ -20,11 +21,15 @@ template <typename MPILhs, typename Rhs, typename Scalar,
 int cg_solve_mpi(MPILhs &A, Rhs b, ExactSol &e, MPIPrecon P, const MPIContext mpi_ctx) {
   // result vector
   apsc::LinearAlgebra::Vector<Scalar> x(Size, static_cast<Scalar>(0.0));
-  int max_iter = 2000;
+  int max_iter = 10000;
   Scalar tol = 1e-18;
   
+  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   auto result = LinearAlgebra::CG<MPILhs, Rhs, MPIPrecon, Size, Scalar>(
       A, x, b, P, max_iter, tol, mpi_ctx, MPI_DOUBLE);
+  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+  std::cout << "rank = " << mpi_ctx.mpi_rank() << " CG time = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
   
   if (mpi_ctx.mpi_rank() == 0) {
     cout << "Solution with Conjugate Gradient:" << endl;
