@@ -17,8 +17,8 @@ jobs:
       run: sudo apt update && sudo apt install libeigen3-dev && echo "Searching for eigen3..." && echo $EIGEN3_INCLUDE_DIR && dpkg -L libeigen3-dev && sudo apt-get install openmpi-bin
     - name: MPI installation
       run: sudo apt install openmpi-bin
-    # - name: search MPI.h
-    #   run: find / -name "mpi.h"
+    - name: search MPI lib
+      run: find / -name "libmpi.so"
     - name: submodule init
       run: cd src/AMSC-CodeExamples &&  git submodule update --init --recursive && cd .. && cd ..
     - name: make
