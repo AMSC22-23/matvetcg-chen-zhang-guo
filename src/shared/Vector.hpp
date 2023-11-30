@@ -324,6 +324,9 @@ void Vector<Scalar>::readFromStream(std::istream &input) {
 
 template <typename Scalar>
 std::ostream &operator<<(std::ostream &out, Vector<Scalar> const &v) {
+  if (v.size() < 1) {
+    return out;
+  }
   out << "[";
   for (std::size_t i = 0u; i < v.size(); ++i) {
     if (i == v.size() - 1) {

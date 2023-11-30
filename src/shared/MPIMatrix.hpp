@@ -1,5 +1,5 @@
 /*
- * PMatrix.hpp
+ * MPIMatrix.hpp
  *
  *  Created on: Oct 15, 2022
  *      Author: forma
@@ -7,8 +7,9 @@
  *      Author: Kaixi Matteo Chen
  */
 
-#ifndef PMATRIX_HPP
-#define PMATRIX_HPP
+#ifndef MPIMATRIX_HPP
+#define MPIMATRIX_HPP
+#include "Vector.hpp"
 #include <Matrix/Matrix.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsuggest-override"
@@ -25,7 +26,7 @@ namespace apsc
  * A class for parallel matrix product
  * @tparam Matrix A matrix compliant with that in Matrix.hpp
  */
-template <class Matrix> class PMatrix
+template <class Matrix, class Vector> class MPIMatrix
 {
 public:
   /*!
@@ -45,7 +46,6 @@ public:
    * and columns of the global matrix
    */
   void setup(Matrix const &gMat, MPI_Comm communic);
-
   /*!
    * Performs the local matrix times vector product.
    * For simplicity we do not partition the input vector, which is indeed
@@ -53,21 +53,91 @@ public:
    *
    * @param x A global vector
    */
-  void product(std::vector<Scalar> const &x);
+  void product(Vector const &x);
   /*!
    * Gets the global solution. All processes call it but just process 0
-   * (manager) gets a non empty vector equal to the result
+   * (manager) gets a non empty vector equal to the result.
+   * The template CollectionVector type must implemen `data()` and `resize()` methods as defined in std::vector.
    *
+   * @tparam CollectionVector the result vector type
    * @return the global solution of the matrix product (only process 0), in v.
    */
-  void collectGlobal(std::vector<Scalar> &v) const;
+  template<typename CollectionVector>
+  void collectGlobal(CollectionVector &v) const
+  {
+    using namespace apsc::LinearAlgebra;
+    if(mpi_rank == manager)
+      v.resize(global_nRows);
+    if constexpr(Matrix::ordering == ORDERING::ROWMAJOR)
+      {
+        // I need to gather the contribution, but first I need to have
+        // find the counts and displacements for the vector
+        std::vector<int> vec_counts(mpi_size);
+        std::vector<int> vec_displacements(mpi_size);
+        for(int i = 0; i < mpi_size; ++i)
+          {
+            vec_counts[i] = counts[i] / global_nCols;
+            vec_displacements[i] = displacements[i] / global_nCols;
+          }
+        // note: vec_counts[i] should be equal to the number of local matrix rows.
+        MPI_Gatherv(localProduct.data(), localProduct.size(), MPI_Scalar_Type,
+                    v.data(), vec_counts.data(), vec_displacements.data(),
+                    MPI_Scalar_Type, manager, mpi_comm);
+      }
+    else
+      {
+        // I need to do a reduction
+        // The local vectors are of the richt size, but contain only
+        // a partial result. I need to sum up.
+        /*
+         * int MPI_Reduce(const void* send_buffer,
+                 void* receive_buffer,
+                 int count,
+                 MPI_Datatype datatype,
+                 MPI_Op operation,
+                 int root,
+                 MPI_Comm communicator);
+         */
+        MPI_Reduce(localProduct.data(), v.data(), global_nRows, MPI_Scalar_Type,
+                   MPI_SUM, manager, mpi_comm);
+      }
+  }
   /*!
    * Gets the global solution. All processes call it and get the
    * result.
+   * The template CollectionVector type must implemen `data()` and `resize()` methods as defined in std::vector.
+   *
+   * @tparam CollectionVector the result vector type
    *
    * @return the global solution of the matrix product, in v.
    */
-  void AllCollectGlobal(std::vector<Scalar> &v) const;
+  template<typename CollectionVector>
+  void AllCollectGlobal(CollectionVector &v) const
+  {
+    using namespace apsc::LinearAlgebra;
+    v.resize(global_nRows);
+    if constexpr(Matrix::ordering == ORDERING::ROWMAJOR)
+      {
+        // I need to gather the contribution, but first I need to have
+        // find the counts and displacements for the vector
+        std::vector<int> vec_counts(mpi_size);
+        std::vector<int> vec_displacements(mpi_size);
+        for(int i = 0; i < mpi_size; ++i)
+          {
+            vec_counts[i] = counts[i] / global_nCols;
+            vec_displacements[i] = displacements[i] / global_nCols;
+          }
+        MPI_Allgatherv(localProduct.data(), localProduct.size(), MPI_Scalar_Type,
+                       v.data(), vec_counts.data(), vec_displacements.data(),
+                       MPI_Scalar_Type, mpi_comm);
+      }
+    else
+      {
+        //  This case is trickier. I need to do a reduction
+        MPI_Allreduce(localProduct.data(), v.data(), global_nRows,
+                      MPI_Scalar_Type, MPI_SUM, mpi_comm);
+      }
+  }
   /*!
    * Returns the local matrix assigned to the processor
    * @return The local matrix
@@ -86,7 +156,7 @@ protected:
   std::vector<int> counts;        // The vector used for gathering/scattering
   std::vector<int> displacements; // The vector used for gathering/scattering
   Matrix           localMatrix;   // The local portion of the matrix
-  std::vector<Scalar> localProduct; // The place where to store the result of the local mult.
+  Vector localProduct; // The place where to store the result of the local mult.
   std::size_t local_nRows = 0u;
   std::size_t local_nCols = 0u;
   std::size_t global_nRows = 0u;
@@ -100,9 +170,9 @@ protected:
 };
 } // end namespace apsc
 
-template <class Matrix>
+template <class Matrix, class Vector>
 void
-apsc::PMatrix<Matrix>::setup(const Matrix &gMat, MPI_Comm communic)
+apsc::MPIMatrix<Matrix, Vector>::setup(const Matrix &gMat, MPI_Comm communic)
 {
   mpi_comm = communic;
   MPI_Comm_rank(mpi_comm, &mpi_rank);
@@ -155,9 +225,9 @@ apsc::PMatrix<Matrix>::setup(const Matrix &gMat, MPI_Comm communic)
                manager, mpi_comm);
 }
 
-template <class Matrix>
+template <class Matrix, class Vector>
 void
-apsc::PMatrix<Matrix>::product(const std::vector<Scalar> &x)
+apsc::MPIMatrix<Matrix, Vector>::product(Vector const& x)
 {
   using namespace apsc::LinearAlgebra;
   if constexpr(Matrix::ordering == ORDERING::ROWMAJOR)
@@ -185,75 +255,4 @@ apsc::PMatrix<Matrix>::product(const std::vector<Scalar> &x)
     }
 }
 
-template <class Matrix>
-void
-apsc::PMatrix<Matrix>::collectGlobal(std::vector<Scalar> &v) const
-{
-  using namespace apsc::LinearAlgebra;
-  if(mpi_rank == manager)
-    v.resize(global_nRows);
-  if constexpr(Matrix::ordering == ORDERING::ROWMAJOR)
-    {
-      // I need to gather the contribution, but first I need to have
-      // find the counts and displacements for the vector
-      std::vector<int> vec_counts(mpi_size);
-      std::vector<int> vec_displacements(mpi_size);
-      for(int i = 0; i < mpi_size; ++i)
-        {
-          vec_counts[i] = counts[i] / global_nCols;
-          vec_displacements[i] = displacements[i] / global_nCols;
-        }
-      // note: vec_counts[i] should be equal to the number of local matrix rows.
-      MPI_Gatherv(localProduct.data(), localProduct.size(), MPI_Scalar_Type,
-                  v.data(), vec_counts.data(), vec_displacements.data(),
-                  MPI_Scalar_Type, manager, mpi_comm);
-    }
-  else
-    {
-      // I need to do a reduction
-      // The local vectors are of the richt size, but contain only
-      // a partial result. I need to sum up.
-      /*
-       * int MPI_Reduce(const void* send_buffer,
-               void* receive_buffer,
-               int count,
-               MPI_Datatype datatype,
-               MPI_Op operation,
-               int root,
-               MPI_Comm communicator);
-       */
-      MPI_Reduce(localProduct.data(), v.data(), global_nRows, MPI_Scalar_Type,
-                 MPI_SUM, manager, mpi_comm);
-    }
-}
-
-template <class Matrix>
-void
-apsc::PMatrix<Matrix>::AllCollectGlobal(std::vector<Scalar> &v) const
-{
-  using namespace apsc::LinearAlgebra;
-  v.resize(global_nRows);
-  if constexpr(Matrix::ordering == ORDERING::ROWMAJOR)
-    {
-      // I need to gather the contribution, but first I need to have
-      // find the counts and displacements for the vector
-      std::vector<int> vec_counts(mpi_size);
-      std::vector<int> vec_displacements(mpi_size);
-      for(int i = 0; i < mpi_size; ++i)
-        {
-          vec_counts[i] = counts[i] / global_nCols;
-          vec_displacements[i] = displacements[i] / global_nCols;
-        }
-      MPI_Allgatherv(localProduct.data(), localProduct.size(), MPI_Scalar_Type,
-                     v.data(), vec_counts.data(), vec_displacements.data(),
-                     MPI_Scalar_Type, mpi_comm);
-    }
-  else
-    {
-      //  This case is trickier. I need to do a reduction
-      MPI_Allreduce(localProduct.data(), v.data(), global_nRows,
-                    MPI_Scalar_Type, MPI_SUM, mpi_comm);
-    }
-}
-
-#endif /* PMATRIX_HPP */
+#endif /* MPIMATRIX_HPP */

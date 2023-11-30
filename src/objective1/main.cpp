@@ -35,7 +35,7 @@ int cg_solve(Lhs &a, Rhs b, ExactSol &e) {
 int main(int argc, char *argv[]) {
   using namespace apsc::LinearAlgebra;
 
-  constexpr unsigned size = 1000;
+  constexpr unsigned size = 10;
   cout << "Creating a test matrix..." << endl;
   MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::COLUMNMAJOR> A(
       size, size);
