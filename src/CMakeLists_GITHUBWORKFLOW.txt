@@ -18,4 +18,4 @@ add_executable(vector_test demo/vector_test.cpp)
 add_executable(eigen_structure_map_test demo/eigen_structure_map_test.cpp)
 add_executable(matrix_with_vec_support_ls_test demo/matrix_with_vec_support_ls_test.cpp)
 
-target_link_libraries(objective2 "/usr/lib/x86_64-linux-gnu/libmpi.so")
+target_link_libraries(objective2 "/usr/lib/x86_64-linux-gnu/libmpi_cxx.so")
