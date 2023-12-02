@@ -31,6 +31,15 @@ multiplication operations, specifically when performing matrix-vector
 multiplications between instances of `MatrixWithVecSupport.hpp` and
 `Vector.hpp`.
 
+## `MPIMatrix.hpp`
+This `MPI` compatible matrix class is inspired by `AMSC-CodeExamples/Examples/src/Parallel/MPI/PMatirx.hpp`.
+This updated class can use a custom `Vector` class as local solution buffer and can collect the result in
+a custom `Vector` class.
+
+The only restrictions are:
+- `Vector` must implement `data()` method in order to expose a pointer to its buffer.
+- `Vector` must implement `resize()` method in order to be resized when needed.
+
 ## Demo Files
 
 You can find them in `matvetcg-chen-zhang-guo/src/demo`.
