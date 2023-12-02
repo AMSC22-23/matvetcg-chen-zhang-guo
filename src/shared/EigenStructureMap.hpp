@@ -23,30 +23,30 @@
  * @tparam MappedMatrix The custom matrix type who owns the data buffer
  * @tparam Sizes The mapped Eigen type size
  */
-template<typename EigenStructure, typename Scalar, typename MappedMatrix, std::size_t... Sizes>
-class EigenStructureMap
-{
-public:
+template <typename EigenStructure, typename Scalar, typename MappedMatrix,
+          std::size_t... Sizes>
+class EigenStructureMap {
+ public:
   EigenStructureMap() = default;
 
-  //TODO: consider using cpp concempts for MappedMatrix type
+  // TODO: consider using cpp concempts for MappedMatrix type
   static EigenStructureMap<EigenStructure, Scalar, MappedMatrix, Sizes...>
-  create_map(MappedMatrix const &m) {
-    Scalar* data = const_cast<Scalar*>(m.data()); //const versioon is called, why?
+  create_map(MappedMatrix const& m) {
+    Scalar* data =
+        const_cast<Scalar*>(m.data());  // const versioon is called, why?
 
-    static_assert(std::is_same_v<decltype(data), Scalar*>, "Mapping different scalar types");
-      return EigenStructureMap<EigenStructure, Scalar, MappedMatrix, Sizes...>(data);
+    static_assert(std::is_same_v<decltype(data), Scalar*>,
+                  "Mapping different scalar types");
+    return EigenStructureMap<EigenStructure, Scalar, MappedMatrix, Sizes...>(
+        data);
   }
 
-  auto
-  structure() {
-    return structure_map;
-  }
+  auto structure() { return structure_map; }
 
-protected:
+ protected:
   EigenStructureMap(Scalar* data) : structure_map(data, Sizes...) {}
 
   Eigen::Map<EigenStructure> structure_map;
 };
 
-#endif //EIGEN_MATRIX_MAP_HPP
+#endif  // EIGEN_MATRIX_MAP_HPP

@@ -7,7 +7,6 @@
 
 #ifndef VECTOR_HPP
 #define VECTOR_HPP
-#include "utils.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <exception>
@@ -17,6 +16,8 @@
 #include <random>
 #include <type_traits>
 #include <vector>
+
+#include "utils.hpp"
 // To avoid stupid warnings if I do not use openmp
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
@@ -26,8 +27,9 @@ namespace apsc::LinearAlgebra {
  * A full vector
  * @tparam Scalar The type of the element
  */
-template <typename SCALAR> class Vector {
-public:
+template <typename SCALAR>
+class Vector {
+ public:
   using Scalar = SCALAR;
 
   /*!
@@ -62,8 +64,9 @@ public:
    * Move constructor.
    * @param v The source vector
    */
-  Vector(const Scalar* begin, const std::size_t length) : vector_size(length) {
-    buffer = std::vector(std::make_move_iterator(begin), std::make_move_iterator(begin + length));
+  Vector(const Scalar *begin, const std::size_t length) : vector_size(length) {
+    buffer = std::vector(std::make_move_iterator(begin),
+                         std::make_move_iterator(begin + length));
   }
 
   /*!
@@ -132,7 +135,7 @@ public:
    *
    * @return A pointer to the buffer
    */
-  decltype(auto) // is Scalar *
+  decltype(auto)  // is Scalar *
   data() noexcept {
     return buffer.data();
   }
@@ -145,7 +148,7 @@ public:
    *
    * @return A pointer to the buffer
    */
-  decltype(auto) // is Scalar const *
+  decltype(auto)  // is Scalar const *
   data() const noexcept {
     return buffer.data();
   }
@@ -161,8 +164,8 @@ public:
   Scalar dot(Vector<InputVectorScalar> const &v) const {
     ASSERT(size() == v.size(), "DotProd: Vector sizes does not match");
     // TODO: check how to integrate MPI
-    return std::inner_product(
-        buffer.begin(), buffer.end(), v.buffer.begin(), static_cast<Scalar>(0));
+    return std::inner_product(buffer.begin(), buffer.end(), v.buffer.begin(),
+                              static_cast<Scalar>(0));
   }
 
   /*!
@@ -243,7 +246,7 @@ public:
    *
    * @param v The input vector.
    */
-  void operator=(Vector<Scalar> const& v) {
+  void operator=(Vector<Scalar> const &v) {
     // TODO: check how to integrate MPI
     vector_size = v.size();
     buffer.resize(vector_size);
@@ -288,7 +291,7 @@ public:
     buffer.shrink_to_fit();
   }
 
-protected:
+ protected:
   std::size_t vector_size = 0u;
   std::vector<Scalar> buffer;
 };
@@ -340,7 +343,7 @@ std::ostream &operator<<(std::ostream &out, Vector<Scalar> const &v) {
   return out;
 }
 
-} // namespace apsc::LinearAlgebra
+}  // namespace apsc::LinearAlgebra
 #pragma GCC diagnostic pop
 
 #endif /* VECTOR_HPP */

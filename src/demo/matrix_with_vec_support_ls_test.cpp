@@ -10,8 +10,8 @@ int main(int argc, char *argv[]) {
   using namespace apsc::LinearAlgebra;
 
   constexpr std::size_t size = 10;
-  MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::COLUMNMAJOR> A(size,
-                                                                          size);
+  MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::COLUMNMAJOR> A(
+      size, size);
   Utils::default_spd_fill<MatrixWithVecSupport<double, ORDERING::COLUMNMAJOR>,
                           double>(A);
 
@@ -20,7 +20,8 @@ int main(int argc, char *argv[]) {
 
   auto x = A.solve<size>(b);
 
-  cout << "Solution of " << endl << A << endl
+  cout << "Solution of " << endl
+       << A << endl
        << "X" << endl
        << b << endl
        << "=" << endl

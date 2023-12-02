@@ -11,19 +11,20 @@
 #include <cassert>
 #include <iostream>
 
-//Custom assertion supporting messages
-#define ASSERT(condition, message)                                             \
-  do {                                                                         \
-    if (!(condition)) {                                                        \
-      std::cerr << "Assertion `" #condition "` failed in " << __FILE__         \
-                << " line " << __LINE__ << ": " << message << std::endl;       \
-      std::terminate();                                                        \
-    }                                                                          \
+// Custom assertion supporting messages
+#define ASSERT(condition, message)                                       \
+  do {                                                                   \
+    if (!(condition)) {                                                  \
+      std::cerr << "Assertion `" #condition "` failed in " << __FILE__   \
+                << " line " << __LINE__ << ": " << message << std::endl; \
+      std::terminate();                                                  \
+    }                                                                    \
   } while (false)
 
 namespace apsc::LinearAlgebra {
 namespace Utils {
-template <typename Mat, typename Scalar> void default_spd_fill(Mat &m) {
+template <typename Mat, typename Scalar>
+void default_spd_fill(Mat &m) {
   ASSERT((m.rows() == m.cols()), "The matrix must be squared!");
   const Scalar diagonal_value = static_cast<Scalar>(2.0);
   const Scalar upper_diagonal_value = static_cast<Scalar>(-1.0);
@@ -40,8 +41,8 @@ template <typename Mat, typename Scalar> void default_spd_fill(Mat &m) {
     }
   }
 }
-} // namespace Utils
+}  // namespace Utils
 
-} // namespace apsc::LinearAlgebra
+}  // namespace apsc::LinearAlgebra
 
-#endif // UTILS_HPP
+#endif  // UTILS_HPP

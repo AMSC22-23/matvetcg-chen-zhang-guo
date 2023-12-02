@@ -11,26 +11,20 @@
 #include <mpi.h>
 
 class MPIContext {
-public:
+ public:
   MPIContext(MPI_Comm* mpi_comm, const int mpi_rank, const int mpi_size = 0)
       : m_mpi_comm(mpi_comm), m_mpi_rank(mpi_rank), m_mpi_size(mpi_size) {}
-  
-  MPI_Comm* mpi_comm() const {
-    return m_mpi_comm;
-  }
 
-  int mpi_rank() const {
-    return m_mpi_rank;
-  } 
+  MPI_Comm* mpi_comm() const { return m_mpi_comm; }
 
-  int mpi_size() const {
-    return m_mpi_rank;
-  } 
+  int mpi_rank() const { return m_mpi_rank; }
 
-private:
-  MPI_Comm*   m_mpi_comm;
-  int         m_mpi_rank;
-  int         m_mpi_size;
+  int mpi_size() const { return m_mpi_rank; }
+
+ private:
+  MPI_Comm* m_mpi_comm;
+  int m_mpi_rank;
+  int m_mpi_size;
 };
 
-#endif //MPICONTEXT_HPP
+#endif  // MPICONTEXT_HPP

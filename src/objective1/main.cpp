@@ -22,12 +22,14 @@ int cg_solve(Lhs &a, Rhs b, ExactSol &e) {
     P(i, i) = one;
   }
 
-  auto result = LinearAlgebra::CG<Lhs, Rhs, Lhs, Size, Scalar>(a, x, b, P, max_iter, tol);
+  auto result =
+      LinearAlgebra::CG<Lhs, Rhs, Lhs, Size, Scalar>(a, x, b, P, max_iter, tol);
 
   cout << "Solution with Conjugate Gradient:" << endl;
   cout << "iterations performed:                      " << max_iter << endl;
   cout << "tolerance achieved:                        " << tol << endl;
-  cout << "Error norm:                                " << (x - e).norm() << std::endl;
+  cout << "Error norm:                                " << (x - e).norm()
+       << std::endl;
 
   return result;
 }
@@ -45,6 +47,6 @@ int main(int argc, char *argv[]) {
   cout << "Creating a test rhs..." << endl;
   Vector<double> e(size, 1.0);
   Vector<double> b = A * e;
-  
+
   return cg_solve<decltype(A), decltype(b), double, size, decltype(e)>(A, b, e);
 }

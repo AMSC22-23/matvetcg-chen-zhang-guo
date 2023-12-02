@@ -27,7 +27,7 @@ namespace apsc::LinearAlgebra {
  */
 template <typename SCALAR, ORDERING ORDER = ORDERING::ROWMAJOR>
 class MatrixWithVecSupport : public Matrix<SCALAR, ORDER> {
-public:
+ public:
   using Scalar = SCALAR;
 
   /*!
@@ -47,7 +47,6 @@ public:
    */
   template <typename InputVectorScalar>
   Vector<Scalar> operator*(Vector<InputVectorScalar> const &v) const {
-
     ASSERT((Matrix<Scalar, ORDER>::nCols == v.size()),
            "MatVetMul: Matrix columns != Vector rows");
 
@@ -93,9 +92,10 @@ public:
     // map matrix to eigen interface
     if constexpr (ORDER == ORDERING::ROWMAJOR) {
       auto eigen_mat =
-          EigenStructureMap<
-              Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>, Scalar,
-              decltype(*this), SystemSize, SystemSize>::create_map(*this)
+          EigenStructureMap<Eigen::Matrix<Scalar, Eigen::Dynamic,
+                                          Eigen::Dynamic, Eigen::RowMajor>,
+                            Scalar, decltype(*this), SystemSize,
+                            SystemSize>::create_map(*this)
               .structure();
 
       // TODO: consider using ldlt for SPD
@@ -105,8 +105,9 @@ public:
       return Vector<Scalar>(buff, res.size());
     } else {
       auto eigen_mat =
-          EigenStructureMap<Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>, Scalar,
-                            decltype(*this), SystemSize, SystemSize>::create_map(*this)
+          EigenStructureMap<
+              Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>, Scalar,
+              decltype(*this), SystemSize, SystemSize>::create_map(*this)
               .structure();
 
       // TODO: consider using ldlt for SPD
@@ -118,7 +119,7 @@ public:
   }
 };
 
-} // namespace apsc::LinearAlgebra
+}  // namespace apsc::LinearAlgebra
 #pragma GCC diagnostic pop
 
 #endif /* MATRIX_WITH_VEC_SUPPORT_HPP */
