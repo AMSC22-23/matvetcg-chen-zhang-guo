@@ -10,7 +10,7 @@
 #include <iostream>
 #include <utils.hpp>
 
-constexpr std::size_t size = 1000;
+constexpr std::size_t size = 10;
 
 int main(int argc, char* argv[]) {
   MPI_Init(nullptr, nullptr);
@@ -22,7 +22,8 @@ int main(int argc, char* argv[]) {
 
   // Create the global full matrix
   apsc::LinearAlgebra::MatrixWithVecSupport<
-      double, apsc::LinearAlgebra::ORDERING::ROWMAJOR>
+      double, apsc::LinearAlgebra::Vector<double>,
+      apsc::LinearAlgebra::ORDERING::COLUMNMAJOR>
       A(size, size);
   if (mpi_rank == 0) {
     apsc::LinearAlgebra::Utils::default_spd_fill<decltype(A), double>(A);
@@ -35,36 +36,29 @@ int main(int argc, char* argv[]) {
   apsc::MPIMatrix<decltype(A), decltype(x)> PA;
   PA.setup(A, mpi_comm);
   int rank = 0;
-  // while (rank < mpi_size) {
-  //   if (mpi_rank == rank) {
-  //     std::cout << "Process rank=" << mpi_rank << " Local Matrix=";
-  //     std::cout << PA.getLocalMatrix();
-  //   }
-  //   rank++;
-  //   MPI_Barrier(mpi_comm);
-  // }
+  while (rank < mpi_size) {
+    if (mpi_rank == rank) {
+      std::cout << "Process rank=" << mpi_rank << " Local Matrix=";
+      std::cout << PA.getLocalMatrix();
+    }
+    rank++;
+    MPI_Barrier(mpi_comm);
+  }
 
   // Product
   std::chrono::steady_clock::time_point begin =
       std::chrono::steady_clock::now();
   PA.product(x);
-  apsc::LinearAlgebra::Vector<double> res;
   std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  apsc::LinearAlgebra::Vector<double> res;
   std::cout << "product time = "
             << std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin)
                    .count()
             << "[ns]" << std::endl;
   PA.AllCollectGlobal(res);
-
-  // rank = 0;
-  // while (rank < mpi_size) {
-  //   if (mpi_rank == rank) {
-  //     std::cout << "Process rank=" << mpi_rank << " Local Res=";
-  //     std::cout << res << std::endl;
-  //   }
-  //   rank++;
-  //   MPI_Barrier(mpi_comm);
-  // }
+  if (mpi_rank == 0) {
+    std::cout << "Product result:" << std::endl << res << std::endl;
+  }
 
   MPI_Finalize();
 

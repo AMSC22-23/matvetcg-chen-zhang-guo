@@ -12,10 +12,12 @@ int main(int argc, char *argv[]) {
   using namespace apsc::LinearAlgebra;
 
   constexpr unsigned size = 5;
-  MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::ROWMAJOR> A(size,
-                                                                          size);
-  Utils::default_spd_fill<MatrixWithVecSupport<double, ORDERING::ROWMAJOR>,
-                          double>(A);
+  MatrixWithVecSupport<double, Vector<double>,
+                       apsc::LinearAlgebra::ORDERING::ROWMAJOR>
+      A(size, size);
+  Utils::default_spd_fill<
+      MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR>, double>(
+      A);
 
   auto mapped_A = EigenStructureMap<Eigen::Matrix<double, size, size>, double,
                                     decltype(A), size, size>::create_map(A);

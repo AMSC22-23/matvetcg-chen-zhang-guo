@@ -10,9 +10,9 @@
 #include <Eigen/Dense>
 #include <EigenStructureMap.hpp>
 #include <Matrix/Matrix.hpp>
-#include <Vector.hpp>
 #include <cassert>
 #include <cstddef>
+#include <type_traits>
 #include <utils.hpp>
 // To avoid stupid warnings if I do not use openmp
 #pragma GCC diagnostic push
@@ -21,11 +21,17 @@ namespace apsc::LinearAlgebra {
 
 /*!
  * A full matrix with vector multiplication support for
- * apsc::LinearAlgebra::Vector
+ * custom Vector class.
+ *
+ * The template Vector param type is used only for internal temporary buffers
+ * and return types. Each computation method can be use with different Vector
+ * classes (hence different from the class template Vector).
+ *
  * @tparam Scalar The type of the element
+ * @tparam Vector The type of the Vector to be used in computation
  * @tparam ORDER The Storage order (default row-wise)
  */
-template <typename SCALAR, ORDERING ORDER = ORDERING::ROWMAJOR>
+template <typename SCALAR, typename Vector, ORDERING ORDER = ORDERING::ROWMAJOR>
 class MatrixWithVecSupport : public Matrix<SCALAR, ORDER> {
  public:
   using Scalar = SCALAR;
@@ -39,18 +45,22 @@ class MatrixWithVecSupport : public Matrix<SCALAR, ORDER> {
       : Matrix<SCALAR, ORDER>(nrows, ncols) {}
 
   /*!
-   * Multiplication with a apsc::LinearAlgebra::Vector
+   * Multiplication with a custom InputVectorType
    * The output vector has the matrix scalar type.
    *
-   * @param v a apsc::LinearAlgebra::Vector vector
+   * Numerical faults will occur if InputVectorType::Scalar and Scalar
+   * are different.
+   *
+   * @tparam InputVectorType the input vector type
+   * @param v a InputVectorType to be multiplicated with
    * @return The result of A*v
    */
-  template <typename InputVectorScalar>
-  Vector<Scalar> operator*(Vector<InputVectorScalar> const &v) const {
+  template <typename InputVectorType>
+  Vector operator*(InputVectorType const &v) const {
     ASSERT((Matrix<Scalar, ORDER>::nCols == v.size()),
            "MatVetMul: Matrix columns != Vector rows");
 
-    Vector<Scalar> res(Matrix<Scalar, ORDER>::nRows, static_cast<Scalar>(0));
+    Vector res(Matrix<Scalar, ORDER>::nRows, static_cast<Scalar>(0));
 
     if constexpr (ORDER == ORDERING::ROWMAJOR) {
       // loop over rows
@@ -79,9 +89,20 @@ class MatrixWithVecSupport : public Matrix<SCALAR, ORDER> {
     return res;
   }
 
-  template <std::size_t SystemSize>
-  Vector<Scalar> solve(Vector<Scalar> const &v) const {
-    Vector<Scalar> x(Matrix<SCALAR, ORDER>::nRows, static_cast<Scalar>(0.0));
+  /*!
+   * Solve a linear system.
+   *
+   * Numerical faults will occur if InputVectorType::Scalar and Scalar
+   * are different.
+   *
+   * @tparam InputVectorType the input vector type
+   * @tparam SystemSize the linear system size
+   * @param v a InputVectorType representing the know data in the linear system
+   * @return The result of Ax=b
+   */
+  template <typename InputVectorType, std::size_t SystemSize>
+  Vector solve(InputVectorType const &v) const {
+    Vector x(Matrix<SCALAR, ORDER>::nRows, static_cast<Scalar>(0.0));
 
     // map vector eigen interface
     auto eigen_vec =
@@ -102,7 +123,7 @@ class MatrixWithVecSupport : public Matrix<SCALAR, ORDER> {
       Eigen::Matrix<Scalar, Eigen::Dynamic, 1> res =
           eigen_mat.colPivHouseholderQr().solve(eigen_vec);
       const Scalar *buff = res.data();
-      return Vector<Scalar>(buff, res.size());
+      return Vector(buff, res.size());
     } else {
       auto eigen_mat =
           EigenStructureMap<
@@ -114,7 +135,7 @@ class MatrixWithVecSupport : public Matrix<SCALAR, ORDER> {
       Eigen::Matrix<Scalar, Eigen::Dynamic, 1> res =
           eigen_mat.colPivHouseholderQr().solve(eigen_vec);
       const Scalar *buff = res.data();
-      return Vector<Scalar>(buff, res.size());
+      return Vector(buff, res.size());
     }
   }
 };

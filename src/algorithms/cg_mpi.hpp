@@ -47,11 +47,12 @@ int CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
   static_assert(
       (std::is_base_of_v<
            apsc::LinearAlgebra::MatrixWithVecSupport<
-               Scalar, apsc::LinearAlgebra::ORDERING::COLUMNMAJOR>,
+               Scalar, Vector, apsc::LinearAlgebra::ORDERING::COLUMNMAJOR>,
            Preconditioner> ||
-       std::is_base_of_v<apsc::LinearAlgebra::MatrixWithVecSupport<
-                             Scalar, apsc::LinearAlgebra::ORDERING::ROWMAJOR>,
-                         Preconditioner>),
+       std::is_base_of_v<
+           apsc::LinearAlgebra::MatrixWithVecSupport<
+               Scalar, Vector, apsc::LinearAlgebra::ORDERING::ROWMAJOR>,
+           Preconditioner>),
       "The input Preconditioner class does not derive from "
       "MatrixWithVecSupport");
 
@@ -88,7 +89,7 @@ int CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
     // result does not gain performance, hence it is computed in all processes
     // (`M` is not a MPI compatible matrix right now). If any data parallel
     // logic is introduced, the `Preconditioner` class must support MPI!
-    z = M.template solve<Size>(r);
+    z = M.template solve<decltype(r), Size>(r);
     rho = r.dot(z);
 
     if (i == 1)

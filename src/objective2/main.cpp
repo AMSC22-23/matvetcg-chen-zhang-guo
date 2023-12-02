@@ -86,12 +86,14 @@ int main(int argc, char *argv[]) {
 
   constexpr unsigned size = 2000;
 
-  MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::ROWMAJOR> A(size,
-                                                                          size);
+  MatrixWithVecSupport<double, Vector<double>,
+                       apsc::LinearAlgebra::ORDERING::ROWMAJOR>
+      A(size, size);
   if (mpi_rank == 0) {
     cout << "Launching CG with problem (SPD matrix) size of " << size << endl;
-    Utils::default_spd_fill<MatrixWithVecSupport<double, ORDERING::ROWMAJOR>,
-                            double>(A);
+    Utils::default_spd_fill<
+        MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR>,
+        double>(A);
   }
 
   // Maintain whole vectors in each processes
@@ -111,8 +113,9 @@ int main(int argc, char *argv[]) {
       PA, b, e, MPIContext(&mpi_comm, mpi_rank));
 #else
   // Setup the preconditioner, all the processes for now..
-  MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::ROWMAJOR> P(size,
-                                                                          size);
+  MatrixWithVecSupport<double, Vector<double>,
+                       apsc::LinearAlgebra::ORDERING::ROWMAJOR>
+      P(size, size);
   for (unsigned i = 0; i < size; i++) {
     P(i, i) = 1.0;
   }

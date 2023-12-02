@@ -10,12 +10,13 @@ int main(int argc, char *argv[]) {
   using namespace apsc::LinearAlgebra;
 
   constexpr unsigned size = 10;
-  MatrixWithVecSupport<double, apsc::LinearAlgebra::ORDERING::ROWMAJOR> A(size,
-                                                                          size);
-  Utils::default_spd_fill<MatrixWithVecSupport<double, ORDERING::ROWMAJOR>,
-                          double>(A);
-
   Vector<double> e(size, 1.0);
+  MatrixWithVecSupport<double, decltype(e),
+                       apsc::LinearAlgebra::ORDERING::ROWMAJOR>
+      A(size, size);
+  Utils::default_spd_fill<
+      MatrixWithVecSupport<double, decltype(e), ORDERING::ROWMAJOR>, double>(A);
+
   Vector<double> b = A * e;
 
   const std::string tab = ":\t";

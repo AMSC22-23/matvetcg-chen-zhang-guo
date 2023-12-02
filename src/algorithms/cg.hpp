@@ -26,6 +26,7 @@
 
 #include "Matrix/Matrix.hpp"
 #include "MatrixWithVecSupport.hpp"
+#include "Vector.hpp"
 namespace LinearAlgebra {
 template <class Matrix, class Vector, class Preconditioner, std::size_t Size,
           typename Scalar>
@@ -34,11 +35,12 @@ int CG(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
   static_assert(
       (std::is_base_of_v<
            apsc::LinearAlgebra::MatrixWithVecSupport<
-               Scalar, apsc::LinearAlgebra::ORDERING::COLUMNMAJOR>,
+               Scalar, Vector, apsc::LinearAlgebra::ORDERING::COLUMNMAJOR>,
            Preconditioner> ||
-       std::is_base_of_v<apsc::LinearAlgebra::MatrixWithVecSupport<
-                             Scalar, apsc::LinearAlgebra::ORDERING::ROWMAJOR>,
-                         Preconditioner>),
+       std::is_base_of_v<
+           apsc::LinearAlgebra::MatrixWithVecSupport<
+               Scalar, Vector, apsc::LinearAlgebra::ORDERING::ROWMAJOR>,
+           Preconditioner>),
       "The input Preconditioner class does not derive from "
       "MatrixWithVecSupport");
 
@@ -62,7 +64,7 @@ int CG(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
   }
 
   for (int i = 1; i <= max_iter; i++) {
-    z = M.template solve<Size>(r);
+    z = M.template solve<decltype(r), Size>(r);
     rho = r.dot(z);
 
     if (i == 1)

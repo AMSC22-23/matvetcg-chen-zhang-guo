@@ -154,6 +154,20 @@ class Vector {
   }
 
   /*!
+   * Returns the begin iterator associated to the managed std::vector
+   *
+   * @return The std::vector begin iterator
+   */
+  auto begin() const noexcept { return buffer.begin(); }
+
+  /*!
+   * Returns the end iterator associated to the managed std::vector
+   *
+   * @return The std::vector end iterator
+   */
+  auto end() const noexcept { return buffer.end(); }
+
+  /*!
    * Dot product with a apsc::LinearAlgebra::Vector.
    * The return type is coerent with the lhs vector type.
    *
