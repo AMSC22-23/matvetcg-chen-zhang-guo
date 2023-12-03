@@ -9,19 +9,17 @@
 
 #ifndef MPIMATRIX_HPP
 #define MPIMATRIX_HPP
-#include <Matrix/Matrix.hpp>
 
-#include "Vector.hpp"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsuggest-override"
 #pragma GCC diagnostic ignored "-Wcast-function-type"
-#include <mpi.h>
-
-#include <Parallel/Utilities/mpi_utils.hpp>  // for MPI_SIZE_T and mpi_typeof()
-#include <Parallel/Utilities/partitioner.hpp>
 #pragma GCC diagnostic pop
 #include <array>
 #include <vector>
+
+#include <Parallel/Utilities/mpi_utils.hpp>  // for MPI_SIZE_T and mpi_typeof()
+#include <Parallel/Utilities/partitioner.hpp>
+#include <mpi.h>
 namespace apsc {
 /*!
  * A class for parallel matrix product
@@ -66,9 +64,9 @@ class MPIMatrix {
    */
   template <typename CollectionVector>
   void collectGlobal(CollectionVector &v) const {
-    using namespace apsc::LinearAlgebra;
+    using namespace apsc;
     if (mpi_rank == manager) v.resize(global_nRows);
-    if constexpr (Matrix::ordering == ORDERING::ROWMAJOR) {
+    if constexpr (static_cast<int>(Matrix::ordering) == static_cast<int>(ORDERINGTYPE::ROWWISE)) {
       // I need to gather the contribution, but first I need to have
       // find the counts and displacements for the vector
       std::vector<int> vec_counts(mpi_size);
@@ -110,9 +108,9 @@ class MPIMatrix {
    */
   template <typename CollectionVector>
   void AllCollectGlobal(CollectionVector &v) const {
-    using namespace apsc::LinearAlgebra;
+    using namespace apsc;
     v.resize(global_nRows);
-    if constexpr (Matrix::ordering == ORDERING::ROWMAJOR) {
+    if constexpr (static_cast<int>(Matrix::ordering) == static_cast<int>(ORDERINGTYPE::ROWWISE)) {
       // I need to gather the contribution, but first I need to have
       // find the counts and displacements for the vector
       std::vector<int> vec_counts(mpi_size);
@@ -165,7 +163,7 @@ void apsc::MPIMatrix<Matrix, Vector>::setup(const Matrix &gMat,
   mpi_comm = communic;
   MPI_Comm_rank(mpi_comm, &mpi_rank);
   MPI_Comm_size(mpi_comm, &mpi_size);
-  using namespace apsc::LinearAlgebra;
+  using namespace apsc;
   // This will contain the number of row and columns of all the local matrices
   std::array<std::vector<std::size_t>, 2> localRandC;
   localRandC[0].resize(
@@ -186,9 +184,11 @@ void apsc::MPIMatrix<Matrix, Vector>::setup(const Matrix &gMat,
   // I use for the partitioning the same block distribution type as the ordering
   // of the matrix: matrices in ROWMAJOR storage will be partitioned along rows
   // and viceversa
-  constexpr apsc::ORDERINGTYPE P_ORDERING =
-      Matrix::ordering == ORDERING::ROWMAJOR ? apsc::ORDERINGTYPE::ROWWISE
-                                             : apsc::ORDERINGTYPE::COLUMNWISE;
+  constexpr ORDERINGTYPE P_ORDERING =
+      static_cast<int>(Matrix::ordering) ==
+              static_cast<int>(ORDERINGTYPE::ROWWISE)
+          ? ORDERINGTYPE::ROWWISE
+          : ORDERINGTYPE::COLUMNWISE;
 
   // I let all tasks compute the partition data, alternative
   // is have it computed only by the master rank and then
@@ -214,8 +214,8 @@ void apsc::MPIMatrix<Matrix, Vector>::setup(const Matrix &gMat,
 
 template <class Matrix, class Vector>
 void apsc::MPIMatrix<Matrix, Vector>::product(Vector const &x) {
-  using namespace apsc::LinearAlgebra;
-  if constexpr (Matrix::ordering == ORDERING::ROWMAJOR) {
+  using namespace apsc;
+  if constexpr (static_cast<int>(Matrix::ordering) == static_cast<int>(ORDERINGTYPE::ROWWISE)) {
     // this is the simplest case. The matrix has all column
     // (but not all rows!)
     this->localProduct = this->localMatrix * x;
