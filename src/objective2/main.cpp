@@ -1,3 +1,4 @@
+#include "Parallel/Utilities/partitioner.hpp"
 #include <mpi.h>
 
 #include <MPIContext.hpp>
@@ -27,7 +28,7 @@ int cg_solve_mpi(MPILhs &A, Rhs b, ExactSol &e, MPIPrecon /*P*/,
                  const MPIContext mpi_ctx) {
 #endif
   apsc::LinearAlgebra::Vector<Scalar> x(Size, static_cast<Scalar>(0.0));
-  int max_iter = 2000;
+  int max_iter = 5000;
   Scalar tol = 1e-18;
 #if USE_PRECONDITIONER == 0
   std::chrono::high_resolution_clock::time_point begin =
@@ -102,7 +103,11 @@ int main(int argc, char *argv[]) {
   // Initialise processes b vector
   MPI_Bcast(b.data(), b.size(), MPI_DOUBLE, 0, mpi_comm);
 
-  apsc::MPIMatrix<decltype(A), decltype(b)> PA;
+  apsc::MPIMatrix<decltype(A), decltype(b),
+                  decltype(A)::ordering == ORDERING::ROWMAJOR
+                      ? apsc::ORDERINGTYPE::ROWWISE
+                      : apsc::ORDERINGTYPE::COLUMNWISE>
+      PA;
   PA.setup(A, mpi_comm);
 #if (DEBUG == 1)
   MPI_matrix_show(PA, A, mpi_rank, mpi_size, mpi_comm);
