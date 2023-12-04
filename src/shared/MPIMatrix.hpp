@@ -52,7 +52,49 @@ class MPIMatrix {
    * from a file. In this case, for the setup we need just the number of rows
    * and columns of the global matrix
    */
-  void setup(Matrix const &gMat, MPI_Comm communic);
+  void setup(Matrix const &gMat, MPI_Comm communic) {
+    mpi_comm = communic;
+    MPI_Comm_rank(mpi_comm, &mpi_rank);
+    MPI_Comm_size(mpi_comm, &mpi_size);
+    using namespace apsc;
+    // This will contain the number of row and columns of all the local matrices
+    std::array<std::vector<std::size_t>, 2> localRandC;
+    localRandC[0].resize(
+        mpi_size);  // get the right size to avoid messing up things
+    localRandC[1].resize(mpi_size);
+    // We need the tools to split the matrix data buffer
+    counts.resize(mpi_size);
+    displacements.resize(mpi_size);
+    if (mpi_rank == manager) {
+      // I am the boss
+      global_nRows = gMat.rows();
+      global_nCols = gMat.cols();
+    }
+    // it would be more efficient to pack stuff to be broadcasted
+    MPI_Bcast(&global_nRows, 1, MPI_SIZE_T, manager, mpi_comm);
+    MPI_Bcast(&global_nCols, 1, MPI_SIZE_T, manager, mpi_comm);
+
+    // I let all tasks compute the partition data, alternative
+    // is have it computed only by the master rank and then
+    // broadcast. But remember that communication is costly.
+
+    MatrixPartitioner<apsc::DistributedPartitioner, ORDER_TYPE> partitioner(
+        global_nRows, global_nCols, mpi_size);  // the partitioner
+
+    auto countAndDisp = apsc::counts_and_displacements(partitioner);
+    counts = countAndDisp[0];
+    displacements = countAndDisp[1];
+    localRandC = partitioner.getLocalRowsAndCols(mpi_size);
+    local_nRows = localRandC[0][mpi_rank];
+    local_nCols = localRandC[1][mpi_rank];
+
+    // Now get the local matrix!
+    localMatrix.resize(local_nRows, local_nCols);
+    int matrixSize = local_nRows * local_nCols;
+    MPI_Scatterv(gMat.data(), counts.data(), displacements.data(),
+                 MPI_Scalar_Type, localMatrix.data(), matrixSize, MPI_Scalar_Type,
+                 manager, mpi_comm);
+  }
   /*!
    * Performs the local matrix times vector product.
    * For simplicity we do not partition the input vector, which is indeed
@@ -80,7 +122,7 @@ class MPIMatrix {
 
       // I copy the relevant portion of the global vector in a local vector
       // exploiting a constructor that takes a range.
-      LinearAlgebra::Vector<Scalar> y(x, startcol, endcol);
+      LinearAlgebra::Vector<Scalar> y(x.data() + startcol, x.data() + endcol);
 
       // TODO: In order to remove this check we need to transform the `y`'s type
       // to a template type, where an Eigen vector can be specified
@@ -104,7 +146,9 @@ class MPIMatrix {
   template <typename CollectionVector>
   void collectGlobal(CollectionVector &v) const {
     using namespace apsc;
-    if (mpi_rank == manager) v.resize(global_nRows);
+    if (mpi_rank == manager) {
+      v.resize(global_nRows);
+    }
     if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
       // I need to gather the contribution, but first I need to have
       // find the counts and displacements for the vector
@@ -195,51 +239,5 @@ class MPIMatrix {
   MPI_Datatype MPI_Scalar_Type = mpi_typeof(Scalar{});
 };
 }  // end namespace apsc
-
-template <class Matrix, class Vector, apsc::ORDERINGTYPE ORDER_TYPE>
-void apsc::MPIMatrix<Matrix, Vector, ORDER_TYPE>::setup(const Matrix &gMat,
-                                            MPI_Comm communic) {
-  mpi_comm = communic;
-  MPI_Comm_rank(mpi_comm, &mpi_rank);
-  MPI_Comm_size(mpi_comm, &mpi_size);
-  using namespace apsc;
-  // This will contain the number of row and columns of all the local matrices
-  std::array<std::vector<std::size_t>, 2> localRandC;
-  localRandC[0].resize(
-      mpi_size);  // get the right size to avoid messing up things
-  localRandC[1].resize(mpi_size);
-  // We need the tools to split the matrix data buffer
-  counts.resize(mpi_size);
-  displacements.resize(mpi_size);
-  if (mpi_rank == manager) {
-    // I am the boss
-    global_nRows = gMat.rows();
-    global_nCols = gMat.cols();
-  }
-  // it would be more efficient to pack stuff to be broadcasted
-  MPI_Bcast(&global_nRows, 1, MPI_SIZE_T, manager, mpi_comm);
-  MPI_Bcast(&global_nCols, 1, MPI_SIZE_T, manager, mpi_comm);
-
-  // I let all tasks compute the partition data, alternative
-  // is have it computed only by the master rank and then
-  // broadcast. But remember that communication is costly.
-
-  MatrixPartitioner<apsc::DistributedPartitioner, ORDER_TYPE> partitioner(
-      global_nRows, global_nCols, mpi_size);  // the partitioner
-
-  auto countAndDisp = apsc::counts_and_displacements(partitioner);
-  counts = countAndDisp[0];
-  displacements = countAndDisp[1];
-  localRandC = partitioner.getLocalRowsAndCols(mpi_size);
-  local_nRows = localRandC[0][mpi_rank];
-  local_nCols = localRandC[1][mpi_rank];
-
-  // Now get the local matrix!
-  localMatrix.resize(local_nRows, local_nCols);
-  int matrixSize = local_nRows * local_nCols;
-  MPI_Scatterv(gMat.data(), counts.data(), displacements.data(),
-               MPI_Scalar_Type, localMatrix.data(), matrixSize, MPI_Scalar_Type,
-               manager, mpi_comm);
-}
 
 #endif /* MPIMATRIX_HPP */
