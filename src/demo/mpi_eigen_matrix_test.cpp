@@ -22,6 +22,7 @@ int main(int argc, char *argv[]) {
 
   // Create the global full matrix
   Eigen::MatrixXd A(size, size);
+  A.fill(0.0);
   if (mpi_rank == 0) {
     apsc::LinearAlgebra::Utils::default_spd_fill<decltype(A), double>(A);
   }
