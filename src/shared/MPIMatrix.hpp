@@ -17,15 +17,23 @@
 #include <array>
 #include <vector>
 
+#include <Eigen/Dense>
+#include <EigenStructureMap.hpp>
 #include <Parallel/Utilities/mpi_utils.hpp>  // for MPI_SIZE_T and mpi_typeof()
 #include <Parallel/Utilities/partitioner.hpp>
+#include <Vector.hpp>
 #include <mpi.h>
 namespace apsc {
 /*!
  * A class for parallel matrix product
  * @tparam Matrix A matrix compliant with that in Matrix.hpp
+ * @tparam Vector The vector type used for the local solution and internal usages.
+ * It must have the following methods:
+ * - data(): Returns a pointer to the data buffer
+ * - resize(std::size_t): Resizes the vector with the requested length
+ * It must have also a range constructor as std::vector
  */
-template <class Matrix, class Vector>
+template <class Matrix, class Vector, ORDERINGTYPE ORDER_TYPE>
 class MPIMatrix {
  public:
   /*!
@@ -50,9 +58,40 @@ class MPIMatrix {
    * For simplicity we do not partition the input vector, which is indeed
    * a global vector.
    *
+   * @tparam InputVectorType The input vector type. It must be complian with the
+   * localMatrix type in order to compute the product.
    * @param x A global vector
    */
-  void product(Vector const &x);
+  template<typename InputVectorType>
+  void product(InputVectorType const &x) {
+    using namespace apsc;
+    if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
+      // this is the simplest case. The matrix has all column
+      // (but not all rows!)
+      this->localProduct = this->localMatrix * x;
+    } else {
+      //  This case is much trickier. The local matrix has fewer columns than
+      //  the rows of x,
+      // so I need to reduce the global vector in input x
+      // I need to get the portion of x corresponding to the columns in the
+      // global matrix
+      auto startcol = displacements[mpi_rank] / global_nRows;
+      auto endcol = (displacements[mpi_rank] + counts[mpi_rank]) / global_nRows;
+
+      // I copy the relevant portion of the global vector in a local vector
+      // exploiting a constructor that takes a range.
+      LinearAlgebra::Vector<Scalar> y(x, startcol, endcol);
+
+      // TODO: In order to remove this check we need to transform the `y`'s type
+      // to a template type, where an Eigen vector can be specified
+      if constexpr (std::is_base_of_v<Eigen::MatrixBase<Matrix>, Matrix>) {
+        auto mapped_y = Eigen::Map<Eigen::VectorXd>(y.data(), y.size());
+        this->localProduct = this->localMatrix * mapped_y;
+      } else {
+        this->localProduct = this->localMatrix * y;
+      }
+    }
+  }
   /*!
    * Gets the global solution. All processes call it but just process 0
    * (manager) gets a non empty vector equal to the result.
@@ -66,7 +105,7 @@ class MPIMatrix {
   void collectGlobal(CollectionVector &v) const {
     using namespace apsc;
     if (mpi_rank == manager) v.resize(global_nRows);
-    if constexpr (static_cast<int>(Matrix::ordering) == static_cast<int>(ORDERINGTYPE::ROWWISE)) {
+    if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
       // I need to gather the contribution, but first I need to have
       // find the counts and displacements for the vector
       std::vector<int> vec_counts(mpi_size);
@@ -110,7 +149,7 @@ class MPIMatrix {
   void AllCollectGlobal(CollectionVector &v) const {
     using namespace apsc;
     v.resize(global_nRows);
-    if constexpr (static_cast<int>(Matrix::ordering) == static_cast<int>(ORDERINGTYPE::ROWWISE)) {
+    if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
       // I need to gather the contribution, but first I need to have
       // find the counts and displacements for the vector
       std::vector<int> vec_counts(mpi_size);
@@ -157,8 +196,8 @@ class MPIMatrix {
 };
 }  // end namespace apsc
 
-template <class Matrix, class Vector>
-void apsc::MPIMatrix<Matrix, Vector>::setup(const Matrix &gMat,
+template <class Matrix, class Vector, apsc::ORDERINGTYPE ORDER_TYPE>
+void apsc::MPIMatrix<Matrix, Vector, ORDER_TYPE>::setup(const Matrix &gMat,
                                             MPI_Comm communic) {
   mpi_comm = communic;
   MPI_Comm_rank(mpi_comm, &mpi_rank);
@@ -181,20 +220,11 @@ void apsc::MPIMatrix<Matrix, Vector>::setup(const Matrix &gMat,
   MPI_Bcast(&global_nRows, 1, MPI_SIZE_T, manager, mpi_comm);
   MPI_Bcast(&global_nCols, 1, MPI_SIZE_T, manager, mpi_comm);
 
-  // I use for the partitioning the same block distribution type as the ordering
-  // of the matrix: matrices in ROWMAJOR storage will be partitioned along rows
-  // and viceversa
-  constexpr ORDERINGTYPE P_ORDERING =
-      static_cast<int>(Matrix::ordering) ==
-              static_cast<int>(ORDERINGTYPE::ROWWISE)
-          ? ORDERINGTYPE::ROWWISE
-          : ORDERINGTYPE::COLUMNWISE;
-
   // I let all tasks compute the partition data, alternative
   // is have it computed only by the master rank and then
   // broadcast. But remember that communication is costly.
 
-  MatrixPartitioner<apsc::DistributedPartitioner, P_ORDERING> partitioner(
+  MatrixPartitioner<apsc::DistributedPartitioner, ORDER_TYPE> partitioner(
       global_nRows, global_nCols, mpi_size);  // the partitioner
 
   auto countAndDisp = apsc::counts_and_displacements(partitioner);
@@ -210,31 +240,6 @@ void apsc::MPIMatrix<Matrix, Vector>::setup(const Matrix &gMat,
   MPI_Scatterv(gMat.data(), counts.data(), displacements.data(),
                MPI_Scalar_Type, localMatrix.data(), matrixSize, MPI_Scalar_Type,
                manager, mpi_comm);
-}
-
-template <class Matrix, class Vector>
-void apsc::MPIMatrix<Matrix, Vector>::product(Vector const &x) {
-  using namespace apsc;
-  if constexpr (static_cast<int>(Matrix::ordering) == static_cast<int>(ORDERINGTYPE::ROWWISE)) {
-    // this is the simplest case. The matrix has all column
-    // (but not all rows!)
-    this->localProduct = this->localMatrix * x;
-  } else {
-    //  This case is much trickier. The local matrix has fewer columns than
-    //  the rows of x,
-    // so I need to reduce the global vector in input x
-    // I need to get the portion of x corresponding to the columns in the
-    // global matrix
-    auto startcol = displacements[mpi_rank] / global_nRows;
-    auto endcol = (displacements[mpi_rank] + counts[mpi_rank]) / global_nRows;
-    // I copy the relevant portion of the global vector in a local vector
-    // exploiting a constructor that takes a range.
-    // A more elegant, efficient (but complicated) version would be to use a
-    // view. It could have been done if I've used Eigen matrices instead of
-    // vectors.
-    std::vector<Scalar> y(x.begin() + startcol, x.begin() + endcol);
-    this->localProduct = this->localMatrix * y;
-  }
 }
 
 #endif /* MPIMATRIX_HPP */

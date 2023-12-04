@@ -70,6 +70,18 @@ class Vector {
   }
 
   /*!
+   * Range constructor.
+   * @param source The input vector reference
+   * @param begin The begin index (to be added to the begin iterator of the sourc, included)
+   * @param begin The end index (to be added to the begin iterator of the source, excluded)
+   */
+  template<typename InputVectorType>
+  Vector(InputVectorType const& source, std::size_t const start, std::size_t const end) {
+    buffer = std::vector(source.begin() + start, source.begin() + end);
+    vector_size = buffer.size();
+  }
+
+  /*!
    * Sets size value
    * @param new_size
    */
