@@ -10,7 +10,7 @@
 #include <utils.hpp>
 #include <vector>
 
-std::size_t size = 10;
+constexpr std::size_t size = 10;
 
 int main(int argc, char *argv[]) {
   MPI_Init(nullptr, nullptr);
@@ -22,6 +22,8 @@ int main(int argc, char *argv[]) {
 
   // Create the global full matrix
   Eigen::MatrixXd A(size, size);
+  // Also fixed size matrix can be used:
+  // Eigen::Matrix<double, size, size> A;
   A.fill(0.0);
   if (mpi_rank == 0) {
     apsc::LinearAlgebra::Utils::default_spd_fill<decltype(A), double>(A);
@@ -29,8 +31,11 @@ int main(int argc, char *argv[]) {
 
   // Create a Vector
   Eigen::VectorXd x(size);
-  for (std::size_t i = 0; i < size; i++)
+  // Also a fixed size array can be used:
+  // Eigen::Matrix<double, size, 1> x;
+  for (std::size_t i = 0; i < size; i++) {
     x[i] = 1.0;
+  }
 
   // Create the MPI full matrix
   apsc::MPIMatrix<decltype(A), decltype(x),
