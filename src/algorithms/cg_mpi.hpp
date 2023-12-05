@@ -26,13 +26,9 @@
 //      tol  --  the residual after the final iteration
 //
 //*****************************************************************
-
-#include <mpi.h>
-
 #include <MPIContext.hpp>
-#include <Matrix/Matrix.hpp>
 #include <MatrixWithVecSupport.hpp>
-#include <cstddef>
+#include <mpi.h>
 
 namespace LinearAlgebra {
 template <class Matrix, class Vector, class Preconditioner, std::size_t Size,
