@@ -14,7 +14,6 @@
 #pragma GCC diagnostic ignored "-Wsuggest-override"
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #pragma GCC diagnostic pop
-#include <array>
 #include <vector>
 
 #include <Eigen/Dense>
