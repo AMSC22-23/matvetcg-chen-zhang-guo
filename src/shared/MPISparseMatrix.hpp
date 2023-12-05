@@ -1,14 +1,12 @@
 /*
  * MPIMatrix.hpp
  *
- *  Created on: Oct 15, 2022
- *      Author: forma
- *  Modified on: Nov 29 2023
+ *  Created on: Dec 3 2023
  *      Author: Kaixi Matteo Chen
  */
 
-#ifndef MPIMATRIX_HPP
-#define MPIMATRIX_HPP
+#ifndef MPISPARSEMATRIX_HPP
+#define MPISPARSEMATRIX_HPP
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsuggest-override"
@@ -17,32 +15,35 @@
 #include <mpi.h>
 
 #include <Eigen/Dense>
-#include <EigenStructureMap.hpp>
+#include <Eigen/Sparse>
 #include <Parallel/Utilities/mpi_utils.hpp>  // for MPI_SIZE_T and mpi_typeof()
 #include <Parallel/Utilities/partitioner.hpp>
 #include <Vector.hpp>
 #include <vector>
 namespace apsc {
 /*!
- * A class for parallel matrix product
- * @tparam Matrix A matrix compliant with that in Matrix.hpp
+ * A class for parallel sparse matrix product
+ * @tparam Matrix A sparse matrix class
  * @tparam Vector The vector type used for the local solution and internal
  * usages. It must have the following methods:
  * - data(): Returns a pointer to the data buffer
  * - resize(std::size_t): Resizes the vector with the requested length
- * It must have also a range constructor as std::vector
  */
 template <class Matrix, class Vector, ORDERINGTYPE ORDER_TYPE>
-class MPIMatrix {
+class MPISparseMatrix {
  public:
   /*!
-   * We assume that Matrix defines a type equal to that of the contained element
+   * We assume that Matrix defines a type equal to that of the contained
+   * element
    */
   using Scalar = typename Matrix::Scalar;
   /*!
    * All processes will call setup but only the managing process
-   * (with number 0) will actually pass a non-empty global matrix
+   * (with number 0) will actually pass a non-empty global matrix.
+   * Currently only Eigen::SparseMatrix class is supported.
    *
+   *
+   * @tparam ORDER The input sparse matrix ordering type
    * @param gMat The global matrix
    * @param communic The MPI communicator
    *
@@ -56,6 +57,13 @@ class MPIMatrix {
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     MPI_Comm_size(mpi_comm, &mpi_size);
     using namespace apsc;
+
+    if constexpr (!std::is_base_of_v<Eigen::SparseCompressedBase<Matrix>,
+                                     Matrix>) {
+      throw std::invalid_argument(
+          "Only Eigen::SparseMatrix class is supported");
+    }
+
     // This will contain the number of row and columns of all the local matrices
     std::array<std::vector<std::size_t>, 2> localRandC;
     localRandC[0].resize(
@@ -68,10 +76,12 @@ class MPIMatrix {
       // I am the boss
       global_nRows = gMat.rows();
       global_nCols = gMat.cols();
+      global_nonZeros = gMat.nonZeros();
     }
     // it would be more efficient to pack stuff to be broadcasted
     MPI_Bcast(&global_nRows, 1, MPI_SIZE_T, manager, mpi_comm);
     MPI_Bcast(&global_nCols, 1, MPI_SIZE_T, manager, mpi_comm);
+    MPI_Bcast(&global_nonZeros, 1, MPI_SIZE_T, manager, mpi_comm);
 
     // I let all tasks compute the partition data, alternative
     // is have it computed only by the master rank and then
@@ -87,12 +97,47 @@ class MPIMatrix {
     local_nRows = localRandC[0][mpi_rank];
     local_nCols = localRandC[1][mpi_rank];
 
-    // Now get the local matrix!
     localMatrix.resize(local_nRows, local_nCols);
-    int matrixSize = local_nRows * local_nCols;
-    MPI_Scatterv(gMat.data(), counts.data(), displacements.data(),
-                 MPI_Scalar_Type, localMatrix.data(), matrixSize,
-                 MPI_Scalar_Type, manager, mpi_comm);
+
+    // Now that I have all the displacements broadcast the global matrix data
+    // and build the local sparse matrix
+    std::vector<Scalar> global_mat_non_zero_values(global_nonZeros);
+    // Note: the default storage index for Eigen::SparseMatrix is int, but if
+    // that changes you need to adapt the MPI broadcast command
+    std::vector<int> global_mat_inner_indexes(global_nonZeros);
+    if (mpi_rank == 0) {
+      global_mat_non_zero_values.assign(gMat.valuePtr(),
+                                        gMat.valuePtr() + global_nonZeros);
+      global_mat_inner_indexes.assign(gMat.innerIndexPtr(),
+                                      gMat.innerIndexPtr() + global_nonZeros);
+    }
+    MPI_Bcast(global_mat_non_zero_values.data(), global_nonZeros, MPI_DOUBLE, 0,
+              MPI_COMM_WORLD);
+    MPI_Bcast(global_mat_inner_indexes.data(), global_nonZeros, MPI_INT, 0,
+              MPI_COMM_WORLD);
+
+    if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
+      const int start_row = displacements[mpi_rank] / global_nCols;
+      const int end_row = start_row + (counts[mpi_rank] / global_nCols);
+      for (int k = 0; k < global_nonZeros; ++k) {
+        if (global_mat_inner_indexes[k] >= start_row &&
+            global_mat_inner_indexes[k] < end_row) {
+          localMatrix.insert(global_mat_inner_indexes[k] - start_row,
+                             k % global_nCols) = global_mat_non_zero_values[k];
+        }
+      }
+    } else {
+      const int start_col = displacements[mpi_rank] / global_nRows;
+      const int end_col = start_col + (counts[mpi_rank] / global_nRows);
+      for (int k = 0; k < global_nonZeros; ++k) {
+        if (global_mat_inner_indexes[k] >= start_col &&
+            global_mat_inner_indexes[k] < end_col) {
+          localMatrix.insert(global_mat_inner_indexes[k] % global_nRows,
+                             global_mat_inner_indexes[k] - start_col) =
+              global_mat_non_zero_values[k];
+        }
+      }
+    }
   }
   /*!
    * Performs the local matrix times vector product.
@@ -101,7 +146,7 @@ class MPIMatrix {
    *
    * @tparam InputVectorType The input vector type. It must be complian with the
    * localMatrix type in order to compute the product.
-   * @param x A global vector
+   * @param x A global vector of type InputVectorType.
    */
   template <typename InputVectorType>
   void product(InputVectorType const &x) {
@@ -125,7 +170,8 @@ class MPIMatrix {
 
       // TODO: In order to remove this check we need to transform the `y`'s type
       // to a template type, where an Eigen vector can be specified
-      if constexpr (std::is_base_of_v<Eigen::MatrixBase<Matrix>, Matrix>) {
+      if constexpr (std::is_base_of_v<Eigen::SparseCompressedBase<Matrix>,
+                                      Matrix>) {
         auto mapped_y = Eigen::Map<Eigen::VectorXd>(y.data(), y.size());
         this->localProduct = this->localMatrix * mapped_y;
       } else {
@@ -233,13 +279,14 @@ class MPIMatrix {
   std::size_t local_nCols = 0u;
   std::size_t global_nRows = 0u;
   std::size_t global_nCols = 0u;
+  std::size_t global_nonZeros = 0u;
   // std::size_t offset_Row=0u;
   // std::size_t offset_Col=0u;
   // I use mpi_typeof() in mpi_util.h to recover genericity. Note that to
   // activate the overload I need to create an object of type Scalar. I use the
-  // default constructor, withScalar{}
+  // default constructor, with Scalar{}
   MPI_Datatype MPI_Scalar_Type = mpi_typeof(Scalar{});
 };
 }  // end namespace apsc
 
-#endif /* MPIMATRIX_HPP */
+#endif /* MPISPARSEMATRIX_HPP */

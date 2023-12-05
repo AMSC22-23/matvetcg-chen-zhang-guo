@@ -74,7 +74,7 @@ class Vector {
    * @param begin The pointer to the first buffer element (included)
    * @param end The pointer to the last buffer element (excluded)
    */
-  Vector(const Scalar* start, const Scalar* end) {
+  Vector(const Scalar *start, const Scalar *end) {
     buffer = std::vector(start, end);
     vector_size = buffer.size();
   }

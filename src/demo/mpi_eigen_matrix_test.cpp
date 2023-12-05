@@ -1,8 +1,8 @@
 #include <mpi.h>
+
 #include <Eigen/Dense>
 #include <MPIMatrix.hpp>
 #include <Vector.hpp>
-
 #include <chrono>
 #include <cstddef>
 #include <cstdio>
