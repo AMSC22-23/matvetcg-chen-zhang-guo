@@ -1,5 +1,6 @@
-#include "Parallel/Utilities/partitioner.hpp"
-#include <mpi.h>
+#include <chrono>
+#include <cstddef>
+#include <iostream>
 
 #include <MPIContext.hpp>
 #include <MPIMatrix.hpp>
@@ -7,9 +8,7 @@
 #include <MatrixWithVecSupport.hpp>
 #include <Vector.hpp>
 #include <cg_mpi.hpp>
-#include <chrono>
-#include <cstddef>
-#include <iostream>
+#include <mpi.h>
 
 using std::cout;
 using std::endl;
