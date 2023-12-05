@@ -129,6 +129,9 @@ class MPIMatrix {
         auto mapped_y = Eigen::Map<Eigen::VectorXd>(y.data(), y.size());
         this->localProduct = this->localMatrix * mapped_y;
       } else {
+        // If you use a non standard Matrix class (hence not compatible with
+        // LinearAlgebra::Vector<Scalar> you have to do the required mappings as
+        // done for Eigen)
         this->localProduct = this->localMatrix * y;
       }
     }
