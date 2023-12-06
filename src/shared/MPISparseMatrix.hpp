@@ -12,14 +12,15 @@
 #pragma GCC diagnostic ignored "-Wsuggest-override"
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #pragma GCC diagnostic pop
-#include <mpi.h>
-
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include <Parallel/Utilities/mpi_utils.hpp>  // for MPI_SIZE_T and mpi_typeof()
+#include <Parallel/Utilities/mpi_utils.hpp> // for MPI_SIZE_T and mpi_typeof()
 #include <Parallel/Utilities/partitioner.hpp>
 #include <Vector.hpp>
+#include <mpi.h>
+
 #include <vector>
+#include <array>
 namespace apsc {
 /*!
  * A class for parallel sparse matrix product
@@ -31,7 +32,7 @@ namespace apsc {
  */
 template <class Matrix, class Vector, ORDERINGTYPE ORDER_TYPE>
 class MPISparseMatrix {
- public:
+public:
   /*!
    * We assume that Matrix defines a type equal to that of the contained
    * element
@@ -42,18 +43,17 @@ class MPISparseMatrix {
    * (with number 0) will actually pass a non-empty global matrix.
    * Currently only Eigen::SparseMatrix class is supported.
    *
-   *
    * @tparam ORDER The input sparse matrix ordering type
-   * @param gMat The global matrix
-   * @param communic The MPI communicator
+   * @param compressed_global_sparse_matrix The global matrix in compressed mode (https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_row_(CSR,_CRS_or_Yale_format))
+   * @param communicator The MPI communicator
    *
    * @note This is not the only way to create a parallel matrix. Alternatively,
    * all processes may directly build the local matrix, for instance reading
    * from a file. In this case, for the setup we need just the number of rows
    * and columns of the global matrix
    */
-  void setup(Matrix const &gMat, MPI_Comm communic) {
-    mpi_comm = communic;
+  void setup(Matrix const &compressed_global_sparse_matrix, MPI_Comm communicator) {
+    mpi_comm = communicator;
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     MPI_Comm_size(mpi_comm, &mpi_size);
     using namespace apsc;
@@ -64,77 +64,89 @@ class MPISparseMatrix {
           "Only Eigen::SparseMatrix class is supported");
     }
 
+    // Retrive safely the Eigen index type, by default it is int
+    using EigenIndexType =
+        std::remove_const_t<typename std::remove_reference<decltype(compressed_global_sparse_matrix.innerIndexPtr()[0])>::type>;
+
+    // Accept only Eigen compressed sparse matrix
+    bool dead_signal = 0;
+    if constexpr (std::is_base_of_v<Eigen::SparseCompressedBase<Matrix>,
+                                    Matrix>) {
+      if (mpi_rank == 0 && !compressed_global_sparse_matrix.isCompressed()) {
+        dead_signal = 1;
+        MPI_Bcast(&dead_signal, 1, mpi_typeof(decltype(dead_signal){}), 0, mpi_comm);
+      }
+      if (dead_signal) {
+        throw std::invalid_argument("Received a not compressed Eigen::SparseMatrix");
+      }
+      MPI_Barrier(mpi_comm);
+    }
+
     // This will contain the number of row and columns of all the local matrices
     std::array<std::vector<std::size_t>, 2> localRandC;
     localRandC[0].resize(
-        mpi_size);  // get the right size to avoid messing up things
+        mpi_size); // get the right size to avoid messing up things
     localRandC[1].resize(mpi_size);
     // We need the tools to split the matrix data buffer
     counts.resize(mpi_size);
     displacements.resize(mpi_size);
+
     if (mpi_rank == manager) {
-      // I am the boss
-      global_nRows = gMat.rows();
-      global_nCols = gMat.cols();
-      global_nonZeros = gMat.nonZeros();
+      global_num_rows = static_cast<decltype(global_num_rows)>(compressed_global_sparse_matrix.rows());
+      global_num_cols = static_cast<decltype(global_num_cols)>(compressed_global_sparse_matrix.cols());
+      global_non_zero = static_cast<decltype(global_non_zero)>(compressed_global_sparse_matrix.nonZeros());
+      global_outer_size =
+          static_cast<decltype(global_outer_size)>(compressed_global_sparse_matrix.outerSize() + 1);
     }
     // it would be more efficient to pack stuff to be broadcasted
-    MPI_Bcast(&global_nRows, 1, MPI_SIZE_T, manager, mpi_comm);
-    MPI_Bcast(&global_nCols, 1, MPI_SIZE_T, manager, mpi_comm);
-    MPI_Bcast(&global_nonZeros, 1, MPI_SIZE_T, manager, mpi_comm);
-
-    // I let all tasks compute the partition data, alternative
-    // is have it computed only by the master rank and then
-    // broadcast. But remember that communication is costly.
+    MPI_Bcast(&global_num_rows, 1, MPI_SIZE_T, manager, mpi_comm);
+    MPI_Bcast(&global_num_cols, 1, MPI_SIZE_T, manager, mpi_comm);
+    MPI_Bcast(&global_non_zero, 1, MPI_SIZE_T, manager, mpi_comm);
+    MPI_Bcast(&global_outer_size, 1, MPI_SIZE_T, manager, mpi_comm);
 
     MatrixPartitioner<apsc::DistributedPartitioner, ORDER_TYPE> partitioner(
-        global_nRows, global_nCols, mpi_size);  // the partitioner
+        global_num_rows, global_num_cols, mpi_size);
 
     auto countAndDisp = apsc::counts_and_displacements(partitioner);
     counts = countAndDisp[0];
     displacements = countAndDisp[1];
     localRandC = partitioner.getLocalRowsAndCols(mpi_size);
-    local_nRows = localRandC[0][mpi_rank];
-    local_nCols = localRandC[1][mpi_rank];
+    local_num_rows = localRandC[0][mpi_rank];
+    local_num_cols = localRandC[1][mpi_rank];
 
-    localMatrix.resize(local_nRows, local_nCols);
+    local_matrix.resize(local_num_rows, local_num_cols);
 
-    // Now that I have all the displacements broadcast the global matrix data
-    // and build the local sparse matrix
-    std::vector<Scalar> global_mat_non_zero_values(global_nonZeros);
-    // Note: the default storage index for Eigen::SparseMatrix is int, but if
-    // that changes you need to adapt the MPI broadcast command
-    std::vector<int> global_mat_inner_indexes(global_nonZeros);
+    std::vector<Scalar> global_mat_values_ptr(global_non_zero);
+    std::vector<EigenIndexType> global_mat_inner_index_ptr(global_non_zero);
+    std::vector<EigenIndexType> global_mat_outer_index_ptr(global_outer_size);
     if (mpi_rank == 0) {
-      global_mat_non_zero_values.assign(gMat.valuePtr(),
-                                        gMat.valuePtr() + global_nonZeros);
-      global_mat_inner_indexes.assign(gMat.innerIndexPtr(),
-                                      gMat.innerIndexPtr() + global_nonZeros);
+      global_mat_values_ptr.assign(compressed_global_sparse_matrix.valuePtr(),
+                                   compressed_global_sparse_matrix.valuePtr() + global_non_zero);
+      global_mat_inner_index_ptr.assign(compressed_global_sparse_matrix.innerIndexPtr(),
+                                        compressed_global_sparse_matrix.innerIndexPtr() + global_non_zero);
+      global_mat_outer_index_ptr.assign(
+          compressed_global_sparse_matrix.outerIndexPtr(), compressed_global_sparse_matrix.outerIndexPtr() + global_outer_size);
     }
-    MPI_Bcast(global_mat_non_zero_values.data(), global_nonZeros, MPI_DOUBLE, 0,
-              MPI_COMM_WORLD);
-    MPI_Bcast(global_mat_inner_indexes.data(), global_nonZeros, MPI_INT, 0,
-              MPI_COMM_WORLD);
+    MPI_Bcast(global_mat_values_ptr.data(), global_non_zero,
+              mpi_typeof(Scalar{}), 0, MPI_COMM_WORLD);
+    MPI_Bcast(global_mat_inner_index_ptr.data(), global_non_zero,
+              MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(global_mat_outer_index_ptr.data(), global_outer_size,
+              MPI_INT, 0, MPI_COMM_WORLD);
 
-    if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
-      const int start_row = displacements[mpi_rank] / global_nCols;
-      const int end_row = start_row + (counts[mpi_rank] / global_nCols);
-      for (int k = 0; k < global_nonZeros; ++k) {
-        if (global_mat_inner_indexes[k] >= start_row &&
-            global_mat_inner_indexes[k] < end_row) {
-          localMatrix.insert(global_mat_inner_indexes[k] - start_row,
-                             k % global_nCols) = global_mat_non_zero_values[k];
-        }
-      }
-    } else {
-      const int start_col = displacements[mpi_rank] / global_nRows;
-      const int end_col = start_col + (counts[mpi_rank] / global_nRows);
-      for (int k = 0; k < global_nonZeros; ++k) {
-        if (global_mat_inner_indexes[k] >= start_col &&
-            global_mat_inner_indexes[k] < end_col) {
-          localMatrix.insert(global_mat_inner_indexes[k] % global_nRows,
-                             global_mat_inner_indexes[k] - start_col) =
-              global_mat_non_zero_values[k];
+    const EigenIndexType it_start = displacements[mpi_rank] / global_num_cols;
+    const EigenIndexType it_end =
+        it_start + (counts[mpi_rank] / global_num_cols);
+    for (EigenIndexType i = it_start, local_i_start = 0; i < it_end; i++, ++local_i_start) {
+      const EigenIndexType k_start = global_mat_outer_index_ptr[i];
+      const EigenIndexType k_end = global_mat_outer_index_ptr[i + 1];
+      for (EigenIndexType k = k_start; k < k_end; k++) {
+        EigenIndexType j = global_mat_inner_index_ptr[k];
+        Scalar v = global_mat_values_ptr[k];
+        if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
+          local_matrix.coeffRef(local_i_start, j) = v;
+        } else {
+          local_matrix.coeffRef(j, local_i_start) = v;
         }
       }
     }
@@ -145,24 +157,24 @@ class MPISparseMatrix {
    * a global vector.
    *
    * @tparam InputVectorType The input vector type. It must be complian with the
-   * localMatrix type in order to compute the product.
+   * local_matrix type in order to compute the product.
    * @param x A global vector of type InputVectorType.
    */
-  template <typename InputVectorType>
-  void product(InputVectorType const &x) {
+  template <typename InputVectorType> void product(InputVectorType const &x) {
     using namespace apsc;
     if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
       // this is the simplest case. The matrix has all column
       // (but not all rows!)
-      this->localProduct = this->localMatrix * x;
+      this->local_product = this->local_matrix * x;
     } else {
       //  This case is much trickier. The local matrix has fewer columns than
       //  the rows of x,
       // so I need to reduce the global vector in input x
       // I need to get the portion of x corresponding to the columns in the
       // global matrix
-      auto startcol = displacements[mpi_rank] / global_nRows;
-      auto endcol = (displacements[mpi_rank] + counts[mpi_rank]) / global_nRows;
+      auto startcol = displacements[mpi_rank] / global_num_rows;
+      auto endcol =
+          (displacements[mpi_rank] + counts[mpi_rank]) / global_num_rows;
 
       // I copy the relevant portion of the global vector in a local vector
       // exploiting a constructor that takes a range.
@@ -173,12 +185,12 @@ class MPISparseMatrix {
       if constexpr (std::is_base_of_v<Eigen::SparseCompressedBase<Matrix>,
                                       Matrix>) {
         auto mapped_y = Eigen::Map<Eigen::VectorXd>(y.data(), y.size());
-        this->localProduct = this->localMatrix * mapped_y;
+        this->local_product = this->local_matrix * mapped_y;
       } else {
         // If you use a non standard Matrix class (hence not compatible with
         // LinearAlgebra::Vector<Scalar> you have to do the required mappings as
         // done for Eigen)
-        this->localProduct = this->localMatrix * y;
+        this->local_product = this->local_matrix * y;
       }
     }
   }
@@ -195,7 +207,7 @@ class MPISparseMatrix {
   void collectGlobal(CollectionVector &v) const {
     using namespace apsc;
     if (mpi_rank == manager) {
-      v.resize(global_nRows);
+      v.resize(global_num_rows);
     }
     if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
       // I need to gather the contribution, but first I need to have
@@ -203,11 +215,11 @@ class MPISparseMatrix {
       std::vector<int> vec_counts(mpi_size);
       std::vector<int> vec_displacements(mpi_size);
       for (int i = 0; i < mpi_size; ++i) {
-        vec_counts[i] = counts[i] / global_nCols;
-        vec_displacements[i] = displacements[i] / global_nCols;
+        vec_counts[i] = counts[i] / global_num_cols;
+        vec_displacements[i] = displacements[i] / global_num_cols;
       }
       // note: vec_counts[i] should be equal to the number of local matrix rows.
-      MPI_Gatherv(localProduct.data(), localProduct.size(), MPI_Scalar_Type,
+      MPI_Gatherv(local_product.data(), local_product.size(), MPI_Scalar_Type,
                   v.data(), vec_counts.data(), vec_displacements.data(),
                   MPI_Scalar_Type, manager, mpi_comm);
     } else {
@@ -223,8 +235,8 @@ class MPISparseMatrix {
                int root,
                MPI_Comm communicator);
        */
-      MPI_Reduce(localProduct.data(), v.data(), global_nRows, MPI_Scalar_Type,
-                 MPI_SUM, manager, mpi_comm);
+      MPI_Reduce(local_product.data(), v.data(), global_num_rows,
+                 MPI_Scalar_Type, MPI_SUM, manager, mpi_comm);
     }
   }
   /*!
@@ -240,22 +252,22 @@ class MPISparseMatrix {
   template <typename CollectionVector>
   void AllCollectGlobal(CollectionVector &v) const {
     using namespace apsc;
-    v.resize(global_nRows);
+    v.resize(global_num_rows);
     if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
       // I need to gather the contribution, but first I need to have
       // find the counts and displacements for the vector
       std::vector<int> vec_counts(mpi_size);
       std::vector<int> vec_displacements(mpi_size);
       for (int i = 0; i < mpi_size; ++i) {
-        vec_counts[i] = counts[i] / global_nCols;
-        vec_displacements[i] = displacements[i] / global_nCols;
+        vec_counts[i] = counts[i] / global_num_cols;
+        vec_displacements[i] = displacements[i] / global_num_cols;
       }
-      MPI_Allgatherv(localProduct.data(), localProduct.size(), MPI_Scalar_Type,
-                     v.data(), vec_counts.data(), vec_displacements.data(),
-                     MPI_Scalar_Type, mpi_comm);
+      MPI_Allgatherv(local_product.data(), local_product.size(),
+                     MPI_Scalar_Type, v.data(), vec_counts.data(),
+                     vec_displacements.data(), MPI_Scalar_Type, mpi_comm);
     } else {
       //  This case is trickier. I need to do a reduction
-      MPI_Allreduce(localProduct.data(), v.data(), global_nRows,
+      MPI_Allreduce(local_product.data(), v.data(), global_num_rows,
                     MPI_Scalar_Type, MPI_SUM, mpi_comm);
     }
   }
@@ -263,23 +275,24 @@ class MPISparseMatrix {
    * Returns the local matrix assigned to the processor
    * @return The local matrix
    */
-  auto const &getLocalMatrix() const { return localMatrix; }
+  auto const &getLocalMatrix() const { return local_matrix; }
   static constexpr int manager = 0;
 
- protected:
+protected:
   MPI_Comm mpi_comm;
-  int mpi_rank;                    // my rank
-  int mpi_size;                    // the number of processes
-  std::vector<int> counts;         // The vector used for gathering/scattering
-  std::vector<int> displacements;  // The vector used for gathering/scattering
-  Matrix localMatrix;              // The local portion of the matrix
+  int mpi_rank;                   // my rank
+  int mpi_size;                   // the number of processes
+  std::vector<int> counts;        // The vector used for gathering/scattering
+  std::vector<int> displacements; // The vector used for gathering/scattering
+  Matrix local_matrix;            // The local portion of the matrix
   Vector
-      localProduct;  // The place where to store the result of the local mult.
-  std::size_t local_nRows = 0u;
-  std::size_t local_nCols = 0u;
-  std::size_t global_nRows = 0u;
-  std::size_t global_nCols = 0u;
-  std::size_t global_nonZeros = 0u;
+      local_product; // The place where to store the result of the local mult.
+  std::size_t local_num_rows = 0u;
+  std::size_t local_num_cols = 0u;
+  std::size_t global_num_rows = 0u;
+  std::size_t global_num_cols = 0u;
+  std::size_t global_non_zero = 0u;   // Eigen::SparseMatrix::nonZeros()
+  std::size_t global_outer_size = 0u; // Eigen::SparseMatrix::outerSize()
   // std::size_t offset_Row=0u;
   // std::size_t offset_Col=0u;
   // I use mpi_typeof() in mpi_util.h to recover genericity. Note that to
@@ -287,6 +300,6 @@ class MPISparseMatrix {
   // default constructor, with Scalar{}
   MPI_Datatype MPI_Scalar_Type = mpi_typeof(Scalar{});
 };
-}  // end namespace apsc
+} // end namespace apsc
 
 #endif /* MPISPARSEMATRIX_HPP */

@@ -10,6 +10,9 @@
 #include <utils.hpp>
 #include <vector>
 
+#define DEBUG_EIGEN_INTERNAL_STRUCTURE 1
+#define DEBUG_LOCAL_MATRIX 0
+
 constexpr std::size_t size = 10;
 
 int main(int argc, char *argv[]) {
@@ -27,7 +30,31 @@ int main(int argc, char *argv[]) {
     for (unsigned i = 0; i < size; i++) {
       A.insert(i, i) = 1.0;
     }
+    A.insert(size-1,0) = 2.0;
+    A.insert(0,size-1) = 2.0;
   }
+  A.makeCompressed();
+  
+  if (mpi_rank == 0) {
+    std::cout << "Matrix A" << std::endl << A << std::endl;
+#if (DEBUG_EIGEN_INTERNAL_STRUCTURE == 1)
+    for (int i=0; i<size; i++) {
+      int k_start = A.outerIndexPtr()[i];
+      int k_end   = A.outerIndexPtr()[i+1];
+
+      for (int k = k_start; k < k_end; k++) {
+          int j = A.innerIndexPtr()[k];
+          double v = A.valuePtr()[k];
+          if constexpr (decltype(A)::IsRowMajor) {
+            std::cout << "A(" << i << "," << j << ") = " << v << std::endl; 
+          } else {
+            std::cout << "A(" << j << "," << i << ") = " << v << std::endl; 
+          }
+      }
+    }
+#endif
+  }
+  MPI_Barrier(mpi_comm);
 
   // Create a Vector
   Eigen::VectorXd x(size);
@@ -45,6 +72,7 @@ int main(int argc, char *argv[]) {
       PA;
   PA.setup(A, mpi_comm);
   int rank = 0;
+#if DEBUG_LOCAL_MATRIX == 1
   while (rank < mpi_size) {
     if (mpi_rank == rank) {
       std::cout << "Process rank=" << mpi_rank << " Local Matrix=" << std::endl;
@@ -53,6 +81,7 @@ int main(int argc, char *argv[]) {
     rank++;
     MPI_Barrier(mpi_comm);
   }
+#endif
 
   // Product
   std::chrono::steady_clock::time_point begin =
