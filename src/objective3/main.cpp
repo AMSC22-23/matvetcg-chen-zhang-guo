@@ -92,10 +92,10 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(mpi_comm, &mpi_rank);
   MPI_Comm_size(mpi_comm, &mpi_size);
 
-  
   Eigen::SparseMatrix<double, Eigen::ColMajor> A;
   if (mpi_rank == 0) {
-    std::cout << "Launching CG with a sparse MPI matrix with global size of " << size << std::endl;
+    std::cout << "Launching CG with a sparse MPI matrix with global size of "
+              << size << std::endl;
     A.resize(size, size);
     for (int i = 0; i < size; i++) {
       A.insert(i, i) = 2.0;

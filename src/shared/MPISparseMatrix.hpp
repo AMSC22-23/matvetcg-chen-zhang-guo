@@ -19,8 +19,8 @@
 #include <Vector.hpp>
 #include <mpi.h>
 
-#include <vector>
 #include <array>
+#include <vector>
 namespace apsc {
 /*!
  * A class for parallel sparse matrix product
@@ -44,7 +44,8 @@ public:
    * Currently only Eigen::SparseMatrix class is supported.
    *
    * @tparam ORDER The input sparse matrix ordering type
-   * @param compressed_global_sparse_matrix The global matrix in compressed mode (https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_row_(CSR,_CRS_or_Yale_format))
+   * @param compressed_global_sparse_matrix The global matrix in compressed mode
+   * (https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_row_(CSR,_CRS_or_Yale_format))
    * @param communicator The MPI communicator
    *
    * @note This is not the only way to create a parallel matrix. Alternatively,
@@ -52,7 +53,8 @@ public:
    * from a file. In this case, for the setup we need just the number of rows
    * and columns of the global matrix
    */
-  void setup(Matrix const &compressed_global_sparse_matrix, MPI_Comm communicator) {
+  void setup(Matrix const &compressed_global_sparse_matrix,
+             MPI_Comm communicator) {
     mpi_comm = communicator;
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     MPI_Comm_size(mpi_comm, &mpi_size);
@@ -65,8 +67,8 @@ public:
     }
 
     // Retrive safely the Eigen index type, by default it is int
-    using EigenIndexType =
-        std::remove_const_t<typename std::remove_reference<decltype(compressed_global_sparse_matrix.innerIndexPtr()[0])>::type>;
+    using EigenIndexType = std::remove_const_t<typename std::remove_reference<
+        decltype(compressed_global_sparse_matrix.innerIndexPtr()[0])>::type>;
 
     // Accept only Eigen compressed sparse matrix
     bool dead_signal = 0;
@@ -74,10 +76,12 @@ public:
                                     Matrix>) {
       if (mpi_rank == 0 && !compressed_global_sparse_matrix.isCompressed()) {
         dead_signal = 1;
-        MPI_Bcast(&dead_signal, 1, mpi_typeof(decltype(dead_signal){}), 0, mpi_comm);
+        MPI_Bcast(&dead_signal, 1, mpi_typeof(decltype(dead_signal){}), 0,
+                  mpi_comm);
       }
       if (dead_signal) {
-        throw std::invalid_argument("Received a not compressed Eigen::SparseMatrix");
+        throw std::invalid_argument(
+            "Received a not compressed Eigen::SparseMatrix");
       }
       MPI_Barrier(mpi_comm);
     }
@@ -92,11 +96,14 @@ public:
     displacements.resize(mpi_size);
 
     if (mpi_rank == manager) {
-      global_num_rows = static_cast<decltype(global_num_rows)>(compressed_global_sparse_matrix.rows());
-      global_num_cols = static_cast<decltype(global_num_cols)>(compressed_global_sparse_matrix.cols());
-      global_non_zero = static_cast<decltype(global_non_zero)>(compressed_global_sparse_matrix.nonZeros());
-      global_outer_size =
-          static_cast<decltype(global_outer_size)>(compressed_global_sparse_matrix.outerSize() + 1);
+      global_num_rows = static_cast<decltype(global_num_rows)>(
+          compressed_global_sparse_matrix.rows());
+      global_num_cols = static_cast<decltype(global_num_cols)>(
+          compressed_global_sparse_matrix.cols());
+      global_non_zero = static_cast<decltype(global_non_zero)>(
+          compressed_global_sparse_matrix.nonZeros());
+      global_outer_size = static_cast<decltype(global_outer_size)>(
+          compressed_global_sparse_matrix.outerSize() + 1);
     }
     // it would be more efficient to pack stuff to be broadcasted
     MPI_Bcast(&global_num_rows, 1, MPI_SIZE_T, manager, mpi_comm);
@@ -121,23 +128,27 @@ public:
     std::vector<EigenIndexType> global_mat_outer_index_ptr(global_outer_size);
     if (mpi_rank == 0) {
       global_mat_values_ptr.assign(compressed_global_sparse_matrix.valuePtr(),
-                                   compressed_global_sparse_matrix.valuePtr() + global_non_zero);
-      global_mat_inner_index_ptr.assign(compressed_global_sparse_matrix.innerIndexPtr(),
-                                        compressed_global_sparse_matrix.innerIndexPtr() + global_non_zero);
+                                   compressed_global_sparse_matrix.valuePtr() +
+                                       global_non_zero);
+      global_mat_inner_index_ptr.assign(
+          compressed_global_sparse_matrix.innerIndexPtr(),
+          compressed_global_sparse_matrix.innerIndexPtr() + global_non_zero);
       global_mat_outer_index_ptr.assign(
-          compressed_global_sparse_matrix.outerIndexPtr(), compressed_global_sparse_matrix.outerIndexPtr() + global_outer_size);
+          compressed_global_sparse_matrix.outerIndexPtr(),
+          compressed_global_sparse_matrix.outerIndexPtr() + global_outer_size);
     }
     MPI_Bcast(global_mat_values_ptr.data(), global_non_zero,
               mpi_typeof(Scalar{}), 0, MPI_COMM_WORLD);
-    MPI_Bcast(global_mat_inner_index_ptr.data(), global_non_zero,
-              MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(global_mat_outer_index_ptr.data(), global_outer_size,
-              MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(global_mat_inner_index_ptr.data(), global_non_zero, MPI_INT, 0,
+              MPI_COMM_WORLD);
+    MPI_Bcast(global_mat_outer_index_ptr.data(), global_outer_size, MPI_INT, 0,
+              MPI_COMM_WORLD);
 
     const EigenIndexType it_start = displacements[mpi_rank] / global_num_cols;
     const EigenIndexType it_end =
         it_start + (counts[mpi_rank] / global_num_cols);
-    for (EigenIndexType i = it_start, local_i_start = 0; i < it_end; i++, ++local_i_start) {
+    for (EigenIndexType i = it_start, local_i_start = 0; i < it_end;
+         i++, ++local_i_start) {
       const EigenIndexType k_start = global_mat_outer_index_ptr[i];
       const EigenIndexType k_end = global_mat_outer_index_ptr[i + 1];
       for (EigenIndexType k = k_start; k < k_end; k++) {

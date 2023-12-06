@@ -14,7 +14,7 @@
 
 constexpr std::size_t size = 10;
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
   MPI_Init(nullptr, nullptr);
   int mpi_rank;
   int mpi_size;

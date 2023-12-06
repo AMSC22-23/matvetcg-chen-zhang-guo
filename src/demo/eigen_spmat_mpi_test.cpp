@@ -148,7 +148,7 @@ void MPI_col_partition() {
   }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   MPI_Init(0, 0);
   MPI_row_partition();
   MPI_col_partition();

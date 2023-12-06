@@ -55,7 +55,8 @@ int CG(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
   Real normb = b.norm();
   Vector r = b - A * x;
 
-  if (normb == 0.0) normb = 1;
+  if (normb == 0.0)
+    normb = 1;
 
   if ((resid = r.norm() / normb) <= tol) {
     tol = resid;
@@ -92,5 +93,5 @@ int CG(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
   tol = resid;
   return 1;
 }
-}  // namespace LinearAlgebra
+} // namespace LinearAlgebra
 #endif

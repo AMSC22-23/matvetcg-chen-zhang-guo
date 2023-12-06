@@ -27,9 +27,8 @@ namespace apsc::LinearAlgebra {
  * A full vector
  * @tparam Scalar The type of the element
  */
-template <typename SCALAR>
-class Vector {
- public:
+template <typename SCALAR> class Vector {
+public:
   using Scalar = SCALAR;
 
   /*!
@@ -145,7 +144,7 @@ class Vector {
    *
    * @return A pointer to the buffer
    */
-  decltype(auto)  // is Scalar *
+  decltype(auto) // is Scalar *
   data() noexcept {
     return buffer.data();
   }
@@ -158,7 +157,7 @@ class Vector {
    *
    * @return A pointer to the buffer
    */
-  decltype(auto)  // is Scalar const *
+  decltype(auto) // is Scalar const *
   data() const noexcept {
     return buffer.data();
   }
@@ -315,7 +314,7 @@ class Vector {
     buffer.shrink_to_fit();
   }
 
- protected:
+protected:
   std::size_t vector_size = 0u;
   std::vector<Scalar> buffer;
 };
@@ -367,7 +366,7 @@ std::ostream &operator<<(std::ostream &out, Vector<Scalar> const &v) {
   return out;
 }
 
-}  // namespace apsc::LinearAlgebra
+} // namespace apsc::LinearAlgebra
 #pragma GCC diagnostic pop
 
 #endif /* VECTOR_HPP */
