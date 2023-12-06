@@ -16,7 +16,7 @@
 #define DEBUG 0
 #define USE_PRECONDITIONER 0
 
-constexpr int size = 2000;
+constexpr int size = 10000;
 
 using std::cout;
 using std::endl;
@@ -37,8 +37,8 @@ int cg_solve_mpi(MPILhs &A, Rhs b, ExactSol &e, MPIPrecon /*P*/,
   Rhs x;
   x.resize(Size);
   x.fill(0.0);
-  int max_iter = 5000;
-  Scalar tol = 1e-18;
+  int max_iter = size;
+  Scalar tol = 1e-12;
 #if USE_PRECONDITIONER == 0
   std::chrono::high_resolution_clock::time_point begin =
       std::chrono::high_resolution_clock::now();

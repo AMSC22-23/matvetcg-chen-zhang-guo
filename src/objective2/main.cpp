@@ -28,7 +28,7 @@ int cg_solve_mpi(MPILhs &A, Rhs b, ExactSol &e, MPIPrecon /*P*/,
 #endif
   apsc::LinearAlgebra::Vector<Scalar> x(Size, static_cast<Scalar>(0.0));
   int max_iter = 5000;
-  Scalar tol = 1e-18;
+  Scalar tol = 1e-12;
 #if USE_PRECONDITIONER == 0
   std::chrono::high_resolution_clock::time_point begin =
       std::chrono::high_resolution_clock::now();
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(mpi_comm, &mpi_rank);
   MPI_Comm_size(mpi_comm, &mpi_size);
 
-  constexpr unsigned size = 2000;
+  constexpr unsigned size = 5000;
 
   MatrixWithVecSupport<double, Vector<double>,
                        apsc::LinearAlgebra::ORDERING::ROWMAJOR>
