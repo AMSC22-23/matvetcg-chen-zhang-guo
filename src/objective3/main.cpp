@@ -16,13 +16,11 @@
 #define DEBUG 0
 #define USE_PRECONDITIONER 0
 
-constexpr int size = 10000;
+constexpr int size = 40000;
 
 using std::cout;
 using std::endl;
-
-// From Eigen 3.4 you can use Eigen::VectorX<Scalar>
-using EigenVectord = Eigen::Matrix<double, size, 1>;
+using EigenVectord = Eigen::VectorXd;
 
 #if USE_PRECONDITIONER == 0
 template <typename MPILhs, typename Rhs, typename Scalar, int Size,
@@ -112,7 +110,7 @@ int main(int argc, char *argv[]) {
 
   // Maintain whole vectors in each processess
   EigenVectord e;
-  EigenVectord b;
+  EigenVectord b(size);
   if (!mpi_rank) {
     e.resize(size);
     e.fill(1.0);
