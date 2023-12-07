@@ -16,6 +16,8 @@ using std::endl;
 #define DEBUG 0
 #define USE_PRECONDITIONER 0
 
+constexpr unsigned size = 10000;
+
 #if USE_PRECONDITIONER == 0
 template <typename MPILhs, typename Rhs, typename Scalar, int Size,
           typename ExactSol>
@@ -27,7 +29,7 @@ int cg_solve_mpi(MPILhs &A, Rhs b, ExactSol &e, MPIPrecon /*P*/,
                  const MPIContext mpi_ctx) {
 #endif
   apsc::LinearAlgebra::Vector<Scalar> x(Size, static_cast<Scalar>(0.0));
-  int max_iter = 5000;
+  int max_iter = Size;
   Scalar tol = 1e-12;
 #if USE_PRECONDITIONER == 0
   std::chrono::high_resolution_clock::time_point begin =
@@ -84,8 +86,6 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(mpi_comm, &mpi_rank);
   MPI_Comm_size(mpi_comm, &mpi_size);
 
-  constexpr unsigned size = 5000;
-
   MatrixWithVecSupport<double, Vector<double>,
                        apsc::LinearAlgebra::ORDERING::ROWMAJOR>
       A(size, size);
@@ -97,9 +97,14 @@ int main(int argc, char *argv[]) {
   }
 
   // Maintain whole vectors in each processes
-  Vector<double> e(size, 1.0);
-  Vector<double> b = A * e;
+  Vector<double> e;
+  Vector<double> b(size);
   // Initialise processes b vector
+  if (!mpi_rank) {
+    e.resize(size);
+    e.fill(1.0);
+    b = A * e;
+  }
   MPI_Bcast(b.data(), b.size(), MPI_DOUBLE, 0, mpi_comm);
 
   apsc::MPIMatrix<decltype(A), decltype(b),
