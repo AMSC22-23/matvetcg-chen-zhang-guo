@@ -10,10 +10,10 @@
 #include <utils.hpp>
 #include <vector>
 
-#define DEBUG_EIGEN_INTERNAL_STRUCTURE 1
+#define DEBUG_EIGEN_INTERNAL_STRUCTURE 0
 #define DEBUG_LOCAL_MATRIX 0
 
-constexpr std::size_t size = 10;
+constexpr std::size_t size = 10000;
 
 int main(int argc, char *argv[]) {
   MPI_Init(nullptr, nullptr);
@@ -29,14 +29,18 @@ int main(int argc, char *argv[]) {
     A.resize(size, size);
     for (unsigned i = 0; i < size; i++) {
       A.insert(i, i) = 1.0;
+      if (i > 0) {
+        A.insert(i, i - 1) = -1.0;
+      }
+      if (i < size - 1) {
+        A.insert(i, i + 1) = -1.0;
+      }
     }
-    A.insert(size - 1, 0) = 2.0;
-    A.insert(0, size - 1) = 2.0;
   }
   A.makeCompressed();
 
   if (mpi_rank == 0) {
-    std::cout << "Matrix A" << std::endl << A << std::endl;
+    // std::cout << "Matrix A" << std::endl << A << std::endl;
 #if (DEBUG_EIGEN_INTERNAL_STRUCTURE == 1)
     for (int i = 0; i < size; i++) {
       int k_start = A.outerIndexPtr()[i];
@@ -54,15 +58,13 @@ int main(int argc, char *argv[]) {
     }
 #endif
   }
-  MPI_Barrier(mpi_comm);
 
   // Create a Vector
   Eigen::VectorXd x(size);
-  // Also a fixed size array can be used:
-  // Eigen::Matrix<double, size, 1> x;
   for (std::size_t i = 0; i < size; i++) {
     x[i] = 1.0;
   }
+  MPI_Barrier(mpi_comm);
 
   // Create the MPI full matrix
   apsc::MPISparseMatrix<decltype(A), decltype(x),
@@ -96,7 +98,7 @@ int main(int argc, char *argv[]) {
             << "[ns]" << std::endl;
   PA.AllCollectGlobal(res);
   if (mpi_rank == 0) {
-    std::cout << "Product result:" << std::endl << res << std::endl;
+    // std::cout << "Product result:" << std::endl << res << std::endl;
   }
 
   MPI_Finalize();

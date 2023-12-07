@@ -12,7 +12,9 @@
 
 #include "Parallel/Utilities/partitioner.hpp"
 
-constexpr std::size_t size = 10;
+#define DEBUG_LOCAL_MATRIX 0
+
+constexpr std::size_t size = 10000;
 
 int main(int argc, char *argv[]) {
   MPI_Init(nullptr, nullptr);
@@ -38,6 +40,7 @@ int main(int argc, char *argv[]) {
   apsc::MPIMatrix<decltype(A), decltype(x), apsc::ORDERINGTYPE::COLUMNWISE> PA;
   PA.setup(A, mpi_comm);
   int rank = 0;
+#if DEBUG_LOCAL_MATRIX == 1
   while (rank < mpi_size) {
     if (mpi_rank == rank) {
       std::cout << "Process rank=" << mpi_rank << " Local Matrix=";
@@ -46,6 +49,7 @@ int main(int argc, char *argv[]) {
     rank++;
     MPI_Barrier(mpi_comm);
   }
+#endif
 
   // Product
   std::chrono::steady_clock::time_point begin =
@@ -59,7 +63,7 @@ int main(int argc, char *argv[]) {
             << "[ns]" << std::endl;
   PA.AllCollectGlobal(res);
   if (mpi_rank == 0) {
-    std::cout << "Product result:" << std::endl << res << std::endl;
+    // std::cout << "Product result:" << std::endl << res << std::endl;
   }
 
   MPI_Finalize();
