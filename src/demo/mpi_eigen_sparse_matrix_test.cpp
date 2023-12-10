@@ -96,7 +96,16 @@ int main(int argc, char *argv[]) {
             << std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin)
                    .count()
             << "[ns]" << std::endl;
+
+  begin =
+      std::chrono::steady_clock::now();
   PA.AllCollectGlobal(res);
+  end = std::chrono::steady_clock::now();
+  std::cout << std::endl
+            << "collection time = "
+            << std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin)
+                   .count()
+            << "[ns]" << std::endl;
   if (mpi_rank == 0) {
     // std::cout << "Product result:" << std::endl << res << std::endl;
   }
