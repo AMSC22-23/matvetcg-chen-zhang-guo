@@ -27,7 +27,7 @@ mpirun -n [your_core_number] objective2 [problem_size]
 ```
 For example:
 ```
-mpirun -n n objective2 1000
+mpirun -n 2 objective2 1000
 ```
 
 ## Run `objective3`
@@ -36,7 +36,7 @@ mpirun -n [your_core_number] objective3 [input_file]
 ```
 For example (launched from `build` directory):
 ```
-mpirun -n n objective3 ../inputs/0_05fill_size9604.mtx 
+mpirun -n 2 objective3 ../inputs/0_05fill_size9604.mtx 
 ```
 
 ## File format
