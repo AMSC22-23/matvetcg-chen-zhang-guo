@@ -19,7 +19,7 @@ class MPIContext {
 
   int mpi_rank() const { return m_mpi_rank; }
 
-  int mpi_size() const { return m_mpi_rank; }
+  int mpi_size() const { return m_mpi_size; }
 
  private:
   MPI_Comm m_mpi_comm;
