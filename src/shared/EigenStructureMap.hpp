@@ -21,31 +21,40 @@
  * @tparam EigenStructure The mapped Eigen type (MatrixX<>, VectorX<>, ...)
  * @tparam Scalar The scalar type
  * @tparam MappedMatrix The custom matrix type who owns the data buffer
- * @tparam Sizes The mapped Eigen type size
  */
-template <typename EigenStructure, typename Scalar, typename MappedMatrix,
-          std::size_t... Sizes>
+template <typename EigenStructure, typename Scalar, typename MappedMatrix>
 class EigenStructureMap {
 public:
-  EigenStructureMap() = default;
-
   // TODO: consider using cpp concempts for MappedMatrix type
-  static EigenStructureMap<EigenStructure, Scalar, MappedMatrix, Sizes...>
-  create_map(MappedMatrix const &m) {
+  static EigenStructureMap<EigenStructure, Scalar, MappedMatrix>
+  create_map(MappedMatrix const &m, const std::size_t size) {
     Scalar *data =
         const_cast<Scalar *>(m.data()); // const versioon is called, why?
 
     static_assert(std::is_same_v<decltype(data), Scalar *>,
                   "Mapping different scalar types");
-    return EigenStructureMap<EigenStructure, Scalar, MappedMatrix, Sizes...>(
-        data);
+    return EigenStructureMap<EigenStructure, Scalar, MappedMatrix>(data, size);
+  }
+
+  static EigenStructureMap<EigenStructure, Scalar, MappedMatrix>
+  create_map(MappedMatrix const &m, const std::size_t rows, const std::size_t cols) {
+    Scalar *data =
+        const_cast<Scalar *>(m.data()); // const versioon is called, why?
+
+    static_assert(std::is_same_v<decltype(data), Scalar *>,
+                  "Mapping different scalar types");
+    return EigenStructureMap<EigenStructure, Scalar, MappedMatrix>(data, rows, cols);
   }
 
   auto structure() { return structure_map; }
 
 protected:
-  EigenStructureMap(Scalar *data) : structure_map(data, Sizes...) {}
+  EigenStructureMap(Scalar *data, const std::size_t size)
+      : structure_map(data, size) {}
 
+  EigenStructureMap(Scalar *data, const std::size_t rows,
+                    const std::size_t cols)
+      : structure_map(data, rows, cols) {}
   Eigen::Map<EigenStructure> structure_map;
 };
 

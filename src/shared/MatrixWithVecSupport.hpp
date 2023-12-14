@@ -13,7 +13,7 @@
 #include <cassert>
 #include <cstddef>
 #include <type_traits>
-#include <utils.hpp>
+#include <assert.hpp>
 // To avoid stupid warnings if I do not use openmp
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
@@ -96,18 +96,19 @@ public:
    * are different.
    *
    * @tparam InputVectorType the input vector type
-   * @tparam SystemSize the linear system size
    * @param v a InputVectorType representing the know data in the linear system
    * @return The result of Ax=b
    */
-  template <typename InputVectorType, std::size_t SystemSize>
+  template <typename InputVectorType>
   Vector solve(InputVectorType const &v) const {
-    Vector x(Matrix<SCALAR, ORDER>::nRows, static_cast<Scalar>(0.0));
+    Vector x(Matrix<SCALAR, ORDER>::nCols, static_cast<Scalar>(0.0));
+
+    ASSERT(this->cols() == v.size(), "Matrix col size != vector size");
 
     // map vector eigen interface
     auto eigen_vec =
         EigenStructureMap<Eigen::Matrix<Scalar, Eigen::Dynamic, 1>, Scalar,
-                          decltype(v), SystemSize>::create_map(v)
+                          decltype(v)>::create_map(v, this->cols())
             .structure();
 
     // map matrix to eigen interface
@@ -115,8 +116,7 @@ public:
       auto eigen_mat =
           EigenStructureMap<Eigen::Matrix<Scalar, Eigen::Dynamic,
                                           Eigen::Dynamic, Eigen::RowMajor>,
-                            Scalar, decltype(*this), SystemSize,
-                            SystemSize>::create_map(*this)
+                            Scalar, decltype(*this)>::create_map(*this, this->rows(), this->cols())
               .structure();
 
       // TODO: consider using ldlt for SPD
@@ -128,7 +128,7 @@ public:
       auto eigen_mat =
           EigenStructureMap<
               Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>, Scalar,
-              decltype(*this), SystemSize, SystemSize>::create_map(*this)
+              decltype(*this)>::create_map(*this, this->rows(), this->cols())
               .structure();
 
       // TODO: consider using ldlt for SPD

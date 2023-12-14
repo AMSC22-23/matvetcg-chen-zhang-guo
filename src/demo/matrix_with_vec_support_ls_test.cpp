@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
   Vector<double> e(size, 1.0);
   Vector<double> b = A * e;
 
-  auto x = A.solve<Vector<double>, size>(b);
+  auto x = A.solve<Vector<double>>(b);
 
   cout << "Solution of " << endl
        << A << endl
