@@ -1,13 +1,13 @@
-#include <chrono>
-#include <cstddef>
-#include <iostream>
+#include <mpi.h>
 
 #include <MPIContext.hpp>
 #include <MPIMatrix.hpp>
 #include <Matrix/Matrix.hpp>
 #include <MatrixWithVecSupport.hpp>
 #include <Vector.hpp>
-#include <mpi.h>
+#include <chrono>
+#include <cstddef>
+#include <iostream>
 
 using std::cout;
 using std::endl;

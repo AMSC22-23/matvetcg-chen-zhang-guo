@@ -33,7 +33,7 @@ namespace apsc::LinearAlgebra {
  */
 template <typename SCALAR, typename Vector, ORDERING ORDER = ORDERING::ROWMAJOR>
 class MatrixWithVecSupport : public Matrix<SCALAR, ORDER> {
-public:
+ public:
   using Scalar = SCALAR;
 
   /*!
@@ -142,7 +142,7 @@ public:
   }
 };
 
-} // namespace apsc::LinearAlgebra
+}  // namespace apsc::LinearAlgebra
 #pragma GCC diagnostic pop
 
 #endif /* MATRIX_WITH_VEC_SUPPORT_HPP */

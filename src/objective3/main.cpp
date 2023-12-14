@@ -1,4 +1,4 @@
-#include <iostream>
+#include <mpi.h>
 
 #include <Eigen/Sparse>
 #include <MPIContext.hpp>
@@ -8,7 +8,7 @@
 #include <MatrixWithVecSupport.hpp>
 #include <Parallel/Utilities/partitioner.hpp>
 #include <Vector.hpp>
-#include <mpi.h>
+#include <iostream>
 #include <utils.hpp>
 
 #define DEBUG 0

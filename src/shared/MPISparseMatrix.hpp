@@ -12,13 +12,13 @@
 #pragma GCC diagnostic ignored "-Wsuggest-override"
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #pragma GCC diagnostic pop
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
-#include <Parallel/Utilities/mpi_utils.hpp> // for MPI_SIZE_T and mpi_typeof()
-#include <Parallel/Utilities/partitioner.hpp>
-#include <Vector.hpp>
 #include <mpi.h>
 
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
+#include <Parallel/Utilities/mpi_utils.hpp>  // for MPI_SIZE_T and mpi_typeof()
+#include <Parallel/Utilities/partitioner.hpp>
+#include <Vector.hpp>
 #include <array>
 #include <vector>
 namespace apsc {
@@ -32,7 +32,7 @@ namespace apsc {
  */
 template <class Matrix, class Vector, ORDERINGTYPE ORDER_TYPE>
 class MPISparseMatrix {
-public:
+ public:
   /*!
    * We assume that Matrix defines a type equal to that of the contained
    * element
@@ -89,7 +89,7 @@ public:
     // This will contain the number of row and columns of all the local matrices
     std::array<std::vector<std::size_t>, 2> localRandC;
     localRandC[0].resize(
-        mpi_size); // get the right size to avoid messing up things
+        mpi_size);  // get the right size to avoid messing up things
     localRandC[1].resize(mpi_size);
     // We need the tools to split the matrix data buffer
     counts.resize(mpi_size);
@@ -127,9 +127,9 @@ public:
     std::vector<EigenIndexType> global_mat_inner_index_ptr(global_non_zero);
     std::vector<EigenIndexType> global_mat_outer_index_ptr(global_outer_size);
     if (mpi_rank == 0) {
-      global_mat_values_ptr.assign(compressed_global_sparse_matrix.valuePtr(),
-                                   compressed_global_sparse_matrix.valuePtr() +
-                                       global_non_zero);
+      global_mat_values_ptr.assign(
+          compressed_global_sparse_matrix.valuePtr(),
+          compressed_global_sparse_matrix.valuePtr() + global_non_zero);
       global_mat_inner_index_ptr.assign(
           compressed_global_sparse_matrix.innerIndexPtr(),
           compressed_global_sparse_matrix.innerIndexPtr() + global_non_zero);
@@ -171,7 +171,8 @@ public:
    * local_matrix type in order to compute the product.
    * @param x A global vector of type InputVectorType.
    */
-  template <typename InputVectorType> void product(InputVectorType const &x) {
+  template <typename InputVectorType>
+  void product(InputVectorType const &x) {
     using namespace apsc;
     if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
       // this is the simplest case. The matrix has all column
@@ -289,21 +290,21 @@ public:
   auto const &getLocalMatrix() const { return local_matrix; }
   static constexpr int manager = 0;
 
-protected:
+ protected:
   MPI_Comm mpi_comm;
-  int mpi_rank;                   // my rank
-  int mpi_size;                   // the number of processes
-  std::vector<int> counts;        // The vector used for gathering/scattering
-  std::vector<int> displacements; // The vector used for gathering/scattering
-  Matrix local_matrix;            // The local portion of the matrix
+  int mpi_rank;                    // my rank
+  int mpi_size;                    // the number of processes
+  std::vector<int> counts;         // The vector used for gathering/scattering
+  std::vector<int> displacements;  // The vector used for gathering/scattering
+  Matrix local_matrix;             // The local portion of the matrix
   Vector
-      local_product; // The place where to store the result of the local mult.
+      local_product;  // The place where to store the result of the local mult.
   std::size_t local_num_rows = 0u;
   std::size_t local_num_cols = 0u;
   std::size_t global_num_rows = 0u;
   std::size_t global_num_cols = 0u;
-  std::size_t global_non_zero = 0u;   // Eigen::SparseMatrix::nonZeros()
-  std::size_t global_outer_size = 0u; // Eigen::SparseMatrix::outerSize()
+  std::size_t global_non_zero = 0u;    // Eigen::SparseMatrix::nonZeros()
+  std::size_t global_outer_size = 0u;  // Eigen::SparseMatrix::outerSize()
   // std::size_t offset_Row=0u;
   // std::size_t offset_Col=0u;
   // I use mpi_typeof() in mpi_util.h to recover genericity. Note that to
@@ -311,6 +312,6 @@ protected:
   // default constructor, with Scalar{}
   MPI_Datatype MPI_Scalar_Type = mpi_typeof(Scalar{});
 };
-} // end namespace apsc
+}  // end namespace apsc
 
 #endif /* MPISPARSEMATRIX_HPP */

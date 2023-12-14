@@ -26,16 +26,17 @@
 //      tol  --  the residual after the final iteration
 //
 //*****************************************************************
+#include <mpi.h>
+
 #include <MPIContext.hpp>
 #include <MatrixWithVecSupport.hpp>
-#include <mpi.h>
 
 namespace LinearAlgebra {
 template <class Matrix, class Vector, class Preconditioner, typename Scalar>
 int CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
        int &max_iter, typename Vector::Scalar &tol, const MPIContext mpi_ctx,
        MPI_Datatype mpi_datatype) {
-#warning                                                                       \
+#warning \
     "If the precondioner does not exploit MPI this method may perform worse that the iterative solution"
   using Real = typename Matrix::Scalar;
 
@@ -71,8 +72,7 @@ int CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
 
   Vector r = b - AxX;
 
-  if (normb == 0.0)
-    normb = 1;
+  if (normb == 0.0) normb = 1;
 
   if ((resid = r.norm() / normb) <= tol) {
     tol = resid;
@@ -197,5 +197,5 @@ int CG_no_precon(Matrix &A, Vector &x, const Vector &b, int &max_iter,
   tol = resid;
   return 1;
 }
-} // namespace LinearAlgebra
+}  // namespace LinearAlgebra
 #endif

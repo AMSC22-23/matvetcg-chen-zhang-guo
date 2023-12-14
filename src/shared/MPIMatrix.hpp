@@ -18,7 +18,7 @@
 
 #include <Eigen/Dense>
 #include <EigenStructureMap.hpp>
-#include <Parallel/Utilities/mpi_utils.hpp> // for MPI_SIZE_T and mpi_typeof()
+#include <Parallel/Utilities/mpi_utils.hpp>  // for MPI_SIZE_T and mpi_typeof()
 #include <Parallel/Utilities/partitioner.hpp>
 #include <Vector.hpp>
 #include <vector>
@@ -32,8 +32,9 @@ namespace apsc {
  * - resize(std::size_t): Resizes the vector with the requested length
  * It must have also a range constructor as std::vector
  */
-template <class Matrix, class Vector, ORDERINGTYPE ORDER_TYPE> class MPIMatrix {
-public:
+template <class Matrix, class Vector, ORDERINGTYPE ORDER_TYPE>
+class MPIMatrix {
+ public:
   /*!
    * We assume that Matrix defines a type equal to that of the contained element
    */
@@ -58,7 +59,7 @@ public:
     // This will contain the number of row and columns of all the local matrices
     std::array<std::vector<std::size_t>, 2> localRandC;
     localRandC[0].resize(
-        mpi_size); // get the right size to avoid messing up things
+        mpi_size);  // get the right size to avoid messing up things
     localRandC[1].resize(mpi_size);
     // We need the tools to split the matrix data buffer
     counts.resize(mpi_size);
@@ -77,7 +78,7 @@ public:
     // broadcast. But remember that communication is costly.
 
     MatrixPartitioner<apsc::DistributedPartitioner, ORDER_TYPE> partitioner(
-        global_nRows, global_nCols, mpi_size); // the partitioner
+        global_nRows, global_nCols, mpi_size);  // the partitioner
 
     auto countAndDisp = apsc::counts_and_displacements(partitioner);
     counts = countAndDisp[0];
@@ -102,7 +103,8 @@ public:
    * localMatrix type in order to compute the product.
    * @param x A global vector
    */
-  template <typename InputVectorType> void product(InputVectorType const &x) {
+  template <typename InputVectorType>
+  void product(InputVectorType const &x) {
     using namespace apsc;
     if constexpr (ORDER_TYPE == ORDERINGTYPE::ROWWISE) {
       // this is the simplest case. The matrix has all column
@@ -218,14 +220,15 @@ public:
   auto const &getLocalMatrix() const { return localMatrix; }
   static constexpr int manager = 0;
 
-protected:
+ protected:
   MPI_Comm mpi_comm;
-  int mpi_rank;                   // my rank
-  int mpi_size;                   // the number of processes
-  std::vector<int> counts;        // The vector used for gathering/scattering
-  std::vector<int> displacements; // The vector used for gathering/scattering
-  Matrix localMatrix;             // The local portion of the matrix
-  Vector localProduct; // The place where to store the result of the local mult.
+  int mpi_rank;                    // my rank
+  int mpi_size;                    // the number of processes
+  std::vector<int> counts;         // The vector used for gathering/scattering
+  std::vector<int> displacements;  // The vector used for gathering/scattering
+  Matrix localMatrix;              // The local portion of the matrix
+  Vector
+      localProduct;  // The place where to store the result of the local mult.
   std::size_t local_nRows = 0u;
   std::size_t local_nCols = 0u;
   std::size_t global_nRows = 0u;
@@ -237,6 +240,6 @@ protected:
   // default constructor, withScalar{}
   MPI_Datatype MPI_Scalar_Type = mpi_typeof(Scalar{});
 };
-} // end namespace apsc
+}  // end namespace apsc
 
 #endif /* MPIMATRIX_HPP */

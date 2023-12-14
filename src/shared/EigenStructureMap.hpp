@@ -24,23 +24,22 @@
  */
 template <typename EigenStructure, typename Scalar, typename MappedMatrix>
 class EigenStructureMap {
-public:
+ public:
   // TODO: consider using cpp concempts for MappedMatrix type
-  static EigenStructureMap<EigenStructure, Scalar, MappedMatrix>
-  create_map(MappedMatrix const &m, const std::size_t size) {
+  static EigenStructureMap<EigenStructure, Scalar, MappedMatrix> create_map(
+      MappedMatrix const &m, const std::size_t size) {
     Scalar *data =
-        const_cast<Scalar *>(m.data()); // const versioon is called, why?
+        const_cast<Scalar *>(m.data());  // const versioon is called, why?
 
     static_assert(std::is_same_v<decltype(data), Scalar *>,
                   "Mapping different scalar types");
     return EigenStructureMap<EigenStructure, Scalar, MappedMatrix>(data, size);
   }
 
-  static EigenStructureMap<EigenStructure, Scalar, MappedMatrix>
-  create_map(MappedMatrix const &m, const std::size_t rows,
-             const std::size_t cols) {
+  static EigenStructureMap<EigenStructure, Scalar, MappedMatrix> create_map(
+      MappedMatrix const &m, const std::size_t rows, const std::size_t cols) {
     Scalar *data =
-        const_cast<Scalar *>(m.data()); // const versioon is called, why?
+        const_cast<Scalar *>(m.data());  // const versioon is called, why?
 
     static_assert(std::is_same_v<decltype(data), Scalar *>,
                   "Mapping different scalar types");
@@ -50,7 +49,7 @@ public:
 
   auto structure() { return structure_map; }
 
-protected:
+ protected:
   EigenStructureMap(Scalar *data, const std::size_t size)
       : structure_map(data, size) {}
 
@@ -60,4 +59,4 @@ protected:
   Eigen::Map<EigenStructure> structure_map;
 };
 
-#endif // EIGEN_MATRIX_MAP_HPP
+#endif  // EIGEN_MATRIX_MAP_HPP
