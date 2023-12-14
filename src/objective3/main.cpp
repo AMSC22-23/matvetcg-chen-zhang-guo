@@ -21,7 +21,8 @@ using EigenVectord = Eigen::VectorXd;
 int main(int argc, char *argv[]) {
 #if LOAD_MATRIX_FROM_FILE == 0
   if (argc < 2) {
-    std::cerr << "Please specify the problem size as input argument" << std::endl;
+    std::cerr << "Please specify the problem size as input argument"
+              << std::endl;
     return 0;
   }
   const int size = atoi(argv[1]);
@@ -55,9 +56,12 @@ int main(int argc, char *argv[]) {
     MPI_Finalize();
     return 0;
   }
-  apsc::LinearAlgebra::Utils::EigenUtils::load_sparse_matrix<decltype(A), double>(argv[1], A);
+  apsc::LinearAlgebra::Utils::EigenUtils::load_sparse_matrix<decltype(A),
+                                                             double>(argv[1],
+                                                                     A);
 #if ACCEPT_ONLY_SQUARE_MATRIX == 1
-  ASSERT(A.rows() == A.cols(), "The provided matrix is not square" << std::endl);
+  ASSERT(A.rows() == A.cols(),
+         "The provided matrix is not square" << std::endl);
 #endif
 #endif
   std::cout << "Launching CG with a sparse MPI matrix with size: " << A.rows()
@@ -87,11 +91,13 @@ int main(int argc, char *argv[]) {
       PA;
   PA.setup(A, mpi_comm);
 #if (DEBUG == 1)
-  apsc::LinearAlgebra::Utils::MPI_matrix_show(PA, A, mpi_rank, mpi_size, mpi_comm);
+  apsc::LinearAlgebra::Utils::MPI_matrix_show(PA, A, mpi_rank, mpi_size,
+                                              mpi_comm);
 #endif
 
 #if USE_PRECONDITIONER == 0
-  auto r = apsc::LinearAlgebra::Utils::conjugate_gradient::solve_MPI<decltype(PA), decltype(b), double, decltype(e)>(
+  auto r = apsc::LinearAlgebra::Utils::conjugate_gradient::solve_MPI<
+      decltype(PA), decltype(b), double, decltype(e)>(
       PA, b, e, MPIContext(mpi_comm, mpi_rank));
 #else
   // Setup the preconditioner, all the processes for now..

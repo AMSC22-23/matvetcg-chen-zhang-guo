@@ -36,7 +36,8 @@ int main(int argc, char *argv[]) {
                        apsc::LinearAlgebra::ORDERING::ROWMAJOR>
       A(size, size);
   if (mpi_rank == 0) {
-    cout << "Launching CG with problem (SPD matrix) size of " << size << "x" << size << endl;
+    cout << "Launching CG with problem (SPD matrix) size of " << size << "x"
+         << size << endl;
     Utils::default_spd_fill<
         MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR>,
         double>(A);
@@ -60,11 +61,13 @@ int main(int argc, char *argv[]) {
       PA;
   PA.setup(A, mpi_comm);
 #if (DEBUG == 1)
-  apsc::LinearAlgebra::Utils::MPI_matrix_show(PA, A, mpi_rank, mpi_size, mpi_comm);
+  apsc::LinearAlgebra::Utils::MPI_matrix_show(PA, A, mpi_rank, mpi_size,
+                                              mpi_comm);
 #endif
 
 #if USE_PRECONDITIONER == 0
-  auto r = apsc::LinearAlgebra::Utils::conjugate_gradient::solve_MPI<decltype(PA), decltype(b), double, decltype(e)>(
+  auto r = apsc::LinearAlgebra::Utils::conjugate_gradient::solve_MPI<
+      decltype(PA), decltype(b), double, decltype(e)>(
       PA, b, e, MPIContext(mpi_comm, mpi_rank));
 #else
   // Setup the preconditioner, all the processes for now..

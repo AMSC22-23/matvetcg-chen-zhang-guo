@@ -37,13 +37,15 @@ public:
   }
 
   static EigenStructureMap<EigenStructure, Scalar, MappedMatrix>
-  create_map(MappedMatrix const &m, const std::size_t rows, const std::size_t cols) {
+  create_map(MappedMatrix const &m, const std::size_t rows,
+             const std::size_t cols) {
     Scalar *data =
         const_cast<Scalar *>(m.data()); // const versioon is called, why?
 
     static_assert(std::is_same_v<decltype(data), Scalar *>,
                   "Mapping different scalar types");
-    return EigenStructureMap<EigenStructure, Scalar, MappedMatrix>(data, rows, cols);
+    return EigenStructureMap<EigenStructure, Scalar, MappedMatrix>(data, rows,
+                                                                   cols);
   }
 
   auto structure() { return structure_map; }

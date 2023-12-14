@@ -97,8 +97,7 @@ int main(int argc, char *argv[]) {
                    .count()
             << "[ns]" << std::endl;
 
-  begin =
-      std::chrono::steady_clock::now();
+  begin = std::chrono::steady_clock::now();
   PA.AllCollectGlobal(res);
   end = std::chrono::steady_clock::now();
   std::cout << std::endl

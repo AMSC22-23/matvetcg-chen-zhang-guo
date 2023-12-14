@@ -10,10 +10,10 @@
 #include <Eigen/Dense>
 #include <EigenStructureMap.hpp>
 #include <Matrix/Matrix.hpp>
+#include <assert.hpp>
 #include <cassert>
 #include <cstddef>
 #include <type_traits>
-#include <assert.hpp>
 // To avoid stupid warnings if I do not use openmp
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
@@ -116,7 +116,9 @@ public:
       auto eigen_mat =
           EigenStructureMap<Eigen::Matrix<Scalar, Eigen::Dynamic,
                                           Eigen::Dynamic, Eigen::RowMajor>,
-                            Scalar, decltype(*this)>::create_map(*this, this->rows(), this->cols())
+                            Scalar, decltype(*this)>::create_map(*this,
+                                                                 this->rows(),
+                                                                 this->cols())
               .structure();
 
       // TODO: consider using ldlt for SPD

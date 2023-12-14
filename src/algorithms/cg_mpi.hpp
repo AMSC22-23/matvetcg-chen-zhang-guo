@@ -158,8 +158,8 @@ int CG_no_precon(Matrix &A, Vector &x, const Vector &b, int &max_iter,
 
   std::cout << mpi_rank << ": entered cg" << std::endl;
   for (int i = 1; i <= max_iter; i++) {
-    //debug iteraton
-    if (i%debug_iteration_delta == 0) {
+    // debug iteraton
+    if (i % debug_iteration_delta == 0) {
       std::cout << mpi_rank << ": iteration " << i << std::endl;
     }
     // alpha numerator

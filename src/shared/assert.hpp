@@ -10,4 +10,4 @@
     }                                                                          \
   } while (false)
 
-#endif //ASSERT_HPP
+#endif // ASSERT_HPP

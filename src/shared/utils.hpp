@@ -42,10 +42,9 @@ template <typename Mat, typename Scalar> void default_spd_fill(Mat &m) {
   }
 }
 
-namespace EigenUtils
-{
+namespace EigenUtils {
 template <typename Matrix, typename Scalar>
-void load_sparse_matrix(const std::string file_name, Matrix& mat) {
+void load_sparse_matrix(const std::string file_name, Matrix &mat) {
   static_assert(
       std::is_same_v<Matrix, Eigen::SparseMatrix<Scalar, Eigen::RowMajor>> ||
           std::is_same_v<Matrix, Eigen::SparseMatrix<Scalar, Eigen::ColMajor>>,
@@ -69,10 +68,11 @@ void MPI_matrix_show(MPIMatrix MPIMat, Matrix Mat, const int mpi_rank,
   }
 }
 
-namespace conjugate_gradient
-{
-template <typename MPILhs, typename Rhs, typename Scalar, typename ExactSol, typename ...Preconditioner>
-int solve_MPI(MPILhs &A, Rhs b, ExactSol &e, const MPIContext mpi_ctx, Preconditioner ...P) {
+namespace conjugate_gradient {
+template <typename MPILhs, typename Rhs, typename Scalar, typename ExactSol,
+          typename... Preconditioner>
+int solve_MPI(MPILhs &A, Rhs b, ExactSol &e, const MPIContext mpi_ctx,
+              Preconditioner... P) {
   constexpr std::size_t P_size = sizeof...(P);
   static_assert(P_size < 2, "Please specify max 1 preconditioner");
 
