@@ -31,8 +31,7 @@
 #include <mpi.h>
 
 namespace LinearAlgebra {
-template <class Matrix, class Vector, class Preconditioner, std::size_t Size,
-          typename Scalar>
+template <class Matrix, class Vector, class Preconditioner, typename Scalar>
 int CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
        int &max_iter, typename Vector::Scalar &tol, const MPIContext mpi_ctx,
        MPI_Datatype mpi_datatype) {
@@ -53,7 +52,7 @@ int CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
       "MatrixWithVecSupport");
 
   const int mpi_rank = mpi_ctx.mpi_rank();
-  const MPI_Comm *mpi_comm = mpi_ctx.mpi_comm();
+  const MPI_Comm mpi_comm = mpi_ctx.mpi_comm();
 
   Real resid;
   Vector p(b.size());
@@ -86,7 +85,7 @@ int CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
     // result does not gain performance, hence it is computed in all processes
     // (`M` is not a MPI compatible matrix right now). If any data parallel
     // logic is introduced, the `Preconditioner` class must support MPI!
-    z = M.template solve<decltype(r), Size>(r);
+    z = M.template solve<decltype(r)>(r);
     rho = r.dot(z);
 
     if (i == 1)
@@ -119,14 +118,16 @@ int CG(Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
   return 1;
 }
 
-template <class Matrix, class Vector, std::size_t Size, typename Scalar>
+template <class Matrix, class Vector, typename Scalar>
 int CG_no_precon(Matrix &A, Vector &x, const Vector &b, int &max_iter,
                  typename Vector::Scalar &tol, const MPIContext mpi_ctx,
                  MPI_Datatype mpi_datatype) {
   using Real = typename Matrix::Scalar;
 
+  constexpr std::size_t debug_iteration_delta = 200;
+
   const int mpi_rank = mpi_ctx.mpi_rank();
-  const MPI_Comm *mpi_comm = mpi_ctx.mpi_comm();
+  const MPI_Comm mpi_comm = mpi_ctx.mpi_comm();
 
   Real alpha, beta, resid, alpha_num, alpha_den, beta_num, beta_den;
   Real normb = b.norm();
@@ -158,7 +159,7 @@ int CG_no_precon(Matrix &A, Vector &x, const Vector &b, int &max_iter,
   std::cout << mpi_rank << ": entered cg" << std::endl;
   for (int i = 1; i <= max_iter; i++) {
     //debug iteraton
-    if (i%200 == 0) {
+    if (i%debug_iteration_delta == 0) {
       std::cout << mpi_rank << ": iteration " << i << std::endl;
     }
     // alpha numerator

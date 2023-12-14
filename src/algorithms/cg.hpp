@@ -28,8 +28,7 @@
 #include "MatrixWithVecSupport.hpp"
 #include "Vector.hpp"
 namespace LinearAlgebra {
-template <class Matrix, class Vector, class Preconditioner, std::size_t Size,
-          typename Scalar>
+template <class Matrix, class Vector, class Preconditioner, typename Scalar>
 int CG(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
        int &max_iter, typename Vector::Scalar &tol) {
   static_assert(
@@ -65,7 +64,7 @@ int CG(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M,
   }
 
   for (int i = 1; i <= max_iter; i++) {
-    z = M.template solve<decltype(r), Size>(r);
+    z = M.template solve<decltype(r)>(r);
     rho = r.dot(z);
 
     if (i == 1)
