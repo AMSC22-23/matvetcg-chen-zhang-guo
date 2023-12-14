@@ -97,8 +97,8 @@ int main(int argc, char *argv[]) {
 
 #if USE_PRECONDITIONER == 0
   auto r = apsc::LinearAlgebra::Utils::conjugate_gradient::solve_MPI<
-      decltype(PA), decltype(b), double, decltype(e)>(
-      PA, b, e, MPIContext(mpi_comm, mpi_rank));
+      decltype(PA), decltype(b), double, decltype(e), 3>(
+      PA, b, e, MPIContext(mpi_comm, mpi_rank, mpi_size));
 #else
   // Setup the preconditioner, all the processes for now..
   // TODO
