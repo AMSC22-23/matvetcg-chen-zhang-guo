@@ -15,6 +15,8 @@ using std::endl;
 #define DEBUG 0
 #define USE_PRECONDITIONER 0
 
+constexpr uint8_t objective_id = 2;
+
 int main(int argc, char *argv[]) {
   using namespace apsc::LinearAlgebra;
 
@@ -67,8 +69,11 @@ int main(int argc, char *argv[]) {
 
 #if USE_PRECONDITIONER == 0
   auto r = apsc::LinearAlgebra::Utils::conjugate_gradient::solve_MPI<
-      decltype(PA), decltype(b), double, decltype(e), 2>(
-      PA, b, e, MPIContext(mpi_comm, mpi_rank, mpi_size));
+      decltype(PA), decltype(b), double, decltype(e)>(
+      PA, b, e, MPIContext(mpi_comm, mpi_rank, mpi_size),
+      objective_context(objective_id, mpi_size,
+                        "objective" + std::to_string(objective_id) +
+                            "_MPISIZE" + std::to_string(mpi_size) + ".log"));
 #else
   // Setup the preconditioner, all the processes for now..
   MatrixWithVecSupport<double, Vector<double>,

@@ -8,28 +8,29 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include <mpi.h>
-
-#include <assert.hpp>
 #include <cassert>
-#include <cg_mpi.hpp>
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <type_traits>
+
+#include <assert.hpp>
+#include <cg_mpi.hpp>
+#include <mpi.h>
+#include <objective_context.hpp>
 #include <unsupported/Eigen/SparseExtra>
 
 using std::cout;
 using std::endl;
 
 #define PRODUCE_OUT_FILE 1
-#define CG_MAX_ITER(i) (20 * i)
+#define CG_MAX_ITER(i) (10 * i)
+#define CG_TOL 1e-8;
 
 namespace apsc::LinearAlgebra {
 namespace Utils {
-template <typename Mat, typename Scalar>
-void default_spd_fill(Mat &m) {
+template <typename Mat, typename Scalar> void default_spd_fill(Mat &m) {
   ASSERT((m.rows() == m.cols()), "The matrix must be squared!");
   const Scalar diagonal_value = static_cast<Scalar>(2.0);
   const Scalar upper_diagonal_value = static_cast<Scalar>(-1.0);
@@ -57,7 +58,7 @@ void load_sparse_matrix(const std::string file_name, Matrix &mat) {
   ASSERT(Eigen::loadMarket(mat, file_name),
          "Failed to load matrix from " << file_name);
 }
-}  // namespace EigenUtils
+} // namespace EigenUtils
 
 template <typename MPIMatrix, typename Matrix>
 void MPI_matrix_show(MPIMatrix MPIMat, Matrix Mat, const int mpi_rank,
@@ -75,11 +76,15 @@ void MPI_matrix_show(MPIMatrix MPIMat, Matrix Mat, const int mpi_rank,
 
 namespace conjugate_gradient {
 template <typename MPILhs, typename Rhs, typename Scalar, typename ExactSol,
-          int ObjectiveNumber, typename... Preconditioner>
+          typename... Preconditioner>
 int solve_MPI(MPILhs &A, Rhs b, ExactSol &e, const MPIContext mpi_ctx,
-              Preconditioner... P) {
+              objective_context obj_ctx, Preconditioner... P) {
   constexpr std::size_t P_size = sizeof...(P);
   static_assert(P_size < 2, "Please specify max 1 preconditioner");
+
+#if PRODUCE_OUT_FILE == 0
+  (void)obj_ctx;
+#endif
 
   const int size = b.size();
 
@@ -87,7 +92,7 @@ int solve_MPI(MPILhs &A, Rhs b, ExactSol &e, const MPIContext mpi_ctx,
   x.resize(size);
   x.fill(0.0);
   int max_iter = CG_MAX_ITER(size);
-  Scalar tol = 1e-10;
+  Scalar tol = CG_TOL;
 
   if constexpr (P_size == 0) {
     std::chrono::high_resolution_clock::time_point begin =
@@ -117,17 +122,9 @@ int solve_MPI(MPILhs &A, Rhs b, ExactSol &e, const MPIContext mpi_ctx,
            << std::endl;
 #if PRODUCE_OUT_FILE == 1
       {
-        const std::string output_file_name =
-            "objective" + std::to_string(ObjectiveNumber) + "_MPISIZE" +
-            std::to_string(mpi_ctx.mpi_size()) + ".log";
-        std::ofstream output_file(output_file_name, std::ios::app);
-        if (output_file.is_open()) {
-          output_file << size << " " << diff_sum / mpi_ctx.mpi_size()
-                      << std::endl;
-        } else {
-          std::cerr << "Failed to open output file" << endl;
-        }
-        output_file.close();
+        obj_ctx.write(static_cast<long long>(size), ',',
+                      static_cast<long long>(diff_sum / mpi_ctx.mpi_size()),
+                      ',', static_cast<long long>(result));
       }
 #endif
 #if DEBUG == 1
@@ -139,8 +136,8 @@ int solve_MPI(MPILhs &A, Rhs b, ExactSol &e, const MPIContext mpi_ctx,
     // TODO
   }
 }
-}  // namespace conjugate_gradient
-}  // namespace Utils
-}  // namespace apsc::LinearAlgebra
+} // namespace conjugate_gradient
+} // namespace Utils
+} // namespace apsc::LinearAlgebra
 
 #endif /*UTILS_HPP*/

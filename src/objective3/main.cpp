@@ -9,6 +9,7 @@
 #include <Parallel/Utilities/partitioner.hpp>
 #include <Vector.hpp>
 #include <iostream>
+#include <stdint.h>
 #include <utils.hpp>
 
 #define DEBUG 0
@@ -17,6 +18,8 @@
 #define ACCEPT_ONLY_SQUARE_MATRIX 1
 
 using EigenVectord = Eigen::VectorXd;
+
+constexpr uint8_t objective_id = 3;
 
 int main(int argc, char *argv[]) {
 #if LOAD_MATRIX_FROM_FILE == 0
@@ -97,8 +100,10 @@ int main(int argc, char *argv[]) {
 
 #if USE_PRECONDITIONER == 0
   auto r = apsc::LinearAlgebra::Utils::conjugate_gradient::solve_MPI<
-      decltype(PA), decltype(b), double, decltype(e), 3>(
-      PA, b, e, MPIContext(mpi_comm, mpi_rank, mpi_size));
+      decltype(PA), decltype(b), double, decltype(e)>(
+      PA, b, e, MPIContext(mpi_comm, mpi_rank, mpi_size), objective_context(objective_id, mpi_size,
+                        "objective" + std::to_string(objective_id) +
+                            "_MPISIZE" + std::to_string(mpi_size) + ".log", std::string(argv[1])));
 #else
   // Setup the preconditioner, all the processes for now..
   // TODO
