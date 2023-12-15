@@ -25,7 +25,7 @@ using std::cout;
 using std::endl;
 
 #define PRODUCE_OUT_FILE 1
-#define CG_MAX_ITER(i) (10 * i)
+#define CG_MAX_ITER(i) (20 * i)
 #define CG_TOL 1e-8;
 
 namespace apsc::LinearAlgebra {
