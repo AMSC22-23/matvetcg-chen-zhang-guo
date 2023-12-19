@@ -7,14 +7,17 @@
 
 #ifndef VECTOR_HPP
 #define VECTOR_HPP
-#include "utils.hpp"
 #include <algorithm>
+#include <cstddef>
 #include <exception>
 #include <iostream>
+#include <iterator>
 #include <numeric>
 #include <random>
 #include <type_traits>
 #include <vector>
+
+#include "utils.hpp"
 // To avoid stupid warnings if I do not use openmp
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
@@ -24,8 +27,9 @@ namespace apsc::LinearAlgebra {
  * A full vector
  * @tparam Scalar The type of the element
  */
-template <typename SCALAR> class Vector {
-public:
+template <typename SCALAR>
+class Vector {
+ public:
   using Scalar = SCALAR;
 
   /*!
@@ -54,6 +58,25 @@ public:
   Vector(Vector<Scalar> const &v) : vector_size(v.size()) {
     buffer.resize(v.size());
     std::copy(v.buffer.begin(), v.buffer.end(), buffer.begin());
+  }
+
+  /*!
+   * Move constructor.
+   * @param v The source vector
+   */
+  Vector(const Scalar *begin, const std::size_t length) : vector_size(length) {
+    buffer = std::vector(std::make_move_iterator(begin),
+                         std::make_move_iterator(begin + length));
+  }
+
+  /*!
+   * Range constructor.
+   * @param begin The pointer to the first buffer element (included)
+   * @param end The pointer to the last buffer element (excluded)
+   */
+  Vector(const Scalar *start, const Scalar *end) {
+    buffer = std::vector(start, end);
+    vector_size = buffer.size();
   }
 
   /*!
@@ -122,7 +145,7 @@ public:
    *
    * @return A pointer to the buffer
    */
-  decltype(auto) // is Scalar *
+  decltype(auto)  // is Scalar *
   data() noexcept {
     return buffer.data();
   }
@@ -135,10 +158,24 @@ public:
    *
    * @return A pointer to the buffer
    */
-  decltype(auto) // is Scalar const *
+  decltype(auto)  // is Scalar const *
   data() const noexcept {
     return buffer.data();
   }
+
+  /*!
+   * Returns the begin iterator associated to the managed std::vector
+   *
+   * @return The std::vector begin iterator
+   */
+  auto begin() const noexcept { return buffer.begin(); }
+
+  /*!
+   * Returns the end iterator associated to the managed std::vector
+   *
+   * @return The std::vector end iterator
+   */
+  auto end() const noexcept { return buffer.end(); }
 
   /*!
    * Dot product with a apsc::LinearAlgebra::Vector.
@@ -151,9 +188,8 @@ public:
   Scalar dot(Vector<InputVectorScalar> const &v) const {
     ASSERT(size() == v.size(), "DotProd: Vector sizes does not match");
     // TODO: check how to integrate MPI
-    return std::inner_product<std::vector<Scalar>::iterator,
-                              std::vector<InputVectorScalar>::iterator, Scalar>(
-        buffer.begin(), buffer.end(), v.buffer.begin(), static_cast<Scalar>(0));
+    return std::inner_product(buffer.begin(), buffer.end(), v.buffer.begin(),
+                              static_cast<Scalar>(0));
   }
 
   /*!
@@ -166,6 +202,20 @@ public:
   template <typename InputVectorScalar>
   Scalar operator*(Vector<InputVectorScalar> const &v) const {
     return dot(v);
+  }
+
+  /*!
+   * Multiplication by a scalar.
+   *
+   * @param value A scalar value.
+   * @return The result of scalar*v
+   */
+  Vector<Scalar> operator*(Scalar value) const {
+    // TODO: check how to integrate MPI
+    Vector<Scalar> res(*this);
+    std::transform(res.buffer.begin(), res.buffer.end(), res.buffer.begin(),
+                   [&value](auto &c) { return c * value; });
+    return res;
   }
 
   /*!
@@ -182,7 +232,7 @@ public:
     ASSERT(res.size() >= v.size(),
            "Destination vector size is less that lhs vector size");
     std::transform(res.buffer.begin(), res.buffer.end(), v.buffer.begin(),
-                   res.buffer.begin(), std::plus<int>());
+                   res.buffer.begin(), std::plus<Scalar>());
     return res;
   }
 
@@ -200,7 +250,7 @@ public:
     ASSERT(res.size() >= v.size(),
            "Destination vector size is less that lhs vector size");
     std::transform(res.buffer.begin(), res.buffer.end(), v.buffer.begin(),
-                   res.buffer.begin(), std::minus<int>());
+                   res.buffer.begin(), std::minus<Scalar>());
     return res;
   }
 
@@ -216,11 +266,23 @@ public:
   }
 
   /*!
+   * Assignment operator.
+   *
+   * @param v The input vector.
+   */
+  void operator=(Vector<Scalar> const &v) {
+    // TODO: check how to integrate MPI
+    vector_size = v.size();
+    buffer.resize(vector_size);
+    std::copy(v.buffer.begin(), v.buffer.end(), buffer.begin());
+  }
+
+  /*!
    * Euclidean norm.
    *
    * @return The computed euclidean norm.
    */
-  Scalar norm() {
+  Scalar norm() const {
     return static_cast<Scalar>(std::sqrt(std::inner_product(
         buffer.begin(), buffer.end(), buffer.begin(), static_cast<Scalar>(0))));
   }
@@ -253,7 +315,7 @@ public:
     buffer.shrink_to_fit();
   }
 
-protected:
+ protected:
   std::size_t vector_size = 0u;
   std::vector<Scalar> buffer;
 };
@@ -289,6 +351,9 @@ void Vector<Scalar>::readFromStream(std::istream &input) {
 
 template <typename Scalar>
 std::ostream &operator<<(std::ostream &out, Vector<Scalar> const &v) {
+  if (v.size() < 1) {
+    return out;
+  }
   out << "[";
   for (std::size_t i = 0u; i < v.size(); ++i) {
     if (i == v.size() - 1) {
@@ -302,7 +367,7 @@ std::ostream &operator<<(std::ostream &out, Vector<Scalar> const &v) {
   return out;
 }
 
-} // namespace apsc::LinearAlgebra
+}  // namespace apsc::LinearAlgebra
 #pragma GCC diagnostic pop
 
 #endif /* VECTOR_HPP */
