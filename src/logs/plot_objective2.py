@@ -40,7 +40,6 @@ def process(csv_files):
     def onclick(sel):
         y_value = sel.target[1]
         pyperclip.copy(f"{y_value:.{precision}f}")
-        print(f"Y Value: {y_value:.{precision}f} copied to clipboard")
 
     cursor.connect("add", onclick)
 
