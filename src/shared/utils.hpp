@@ -8,17 +8,17 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
+#include <mpi.h>
+
+#include <assert.hpp>
 #include <cassert>
+#include <cg_mpi.hpp>
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <objective_context.hpp>
 #include <string>
 #include <type_traits>
-
-#include <assert.hpp>
-#include <cg_mpi.hpp>
-#include <mpi.h>
-#include <objective_context.hpp>
 #include <unsupported/Eigen/SparseExtra>
 
 using std::cout;
@@ -30,7 +30,8 @@ using std::endl;
 
 namespace apsc::LinearAlgebra {
 namespace Utils {
-template <typename Mat, typename Scalar> void default_spd_fill(Mat &m) {
+template <typename Mat, typename Scalar>
+void default_spd_fill(Mat &m) {
   ASSERT((m.rows() == m.cols()), "The matrix must be squared!");
   const Scalar diagonal_value = static_cast<Scalar>(2.0);
   const Scalar upper_diagonal_value = static_cast<Scalar>(-1.0);
@@ -58,7 +59,7 @@ void load_sparse_matrix(const std::string file_name, Matrix &mat) {
   ASSERT(Eigen::loadMarket(mat, file_name),
          "Failed to load matrix from " << file_name);
 }
-} // namespace EigenUtils
+}  // namespace EigenUtils
 
 template <typename MPIMatrix, typename Matrix>
 void MPI_matrix_show(MPIMatrix MPIMat, Matrix Mat, const int mpi_rank,
@@ -136,8 +137,8 @@ int solve_MPI(MPILhs &A, Rhs b, ExactSol &e, const MPIContext mpi_ctx,
     // TODO
   }
 }
-} // namespace conjugate_gradient
-} // namespace Utils
-} // namespace apsc::LinearAlgebra
+}  // namespace conjugate_gradient
+}  // namespace Utils
+}  // namespace apsc::LinearAlgebra
 
 #endif /*UTILS_HPP*/
