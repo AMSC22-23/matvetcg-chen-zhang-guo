@@ -7,7 +7,27 @@ A parallel MPI implementation of different iterative schemes.
 
 ## Supported preconditioners
 
+## Setup
+Initialise submodules
+
+```
+git submodule update --init --recursive
+```
+
 ## Compilation
+This repository is intended to be used inside the `pcafrica/mk` docker image
+env. See
+[here](https://github.com/HPC-Courses/AMSC-Labs/tree/main/Labs/2023-24/lab00-setup)
+for the configuration. If so, you don't need to take additional steps.
+
+In case you want to run the project locally, you have to:
+- Export the `Eigen` include directory path under the env variable
+  `$EIGEN3_INCLUDE_DIR`.
+- Have `MPI` installed (Note: we had no issued using version `3.1` of `MPI`,
+  newer versions might not compatible)
+
+Then:
+
 ```
 - cd src
 - mkdir build
@@ -44,3 +64,9 @@ In order to maintain a consistent format please format your files with
 ```
 clang-format -style=Google --sort-includes -i path/to/file
 ```
+
+## A note on Eigen usage
+In order to maintain back compability with the `Eigen` version inside the offical
+supported docker image (`pcafrica/mk`), `Eigen 3.4` or above features must not
+be used.
+
