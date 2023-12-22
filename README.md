@@ -65,6 +65,14 @@ In order to maintain a consistent format please format your files with
 clang-format -style=Google --sort-includes -i path/to/file
 ```
 
+## MPI docker errors
+You might experience a strange error when launching `MPI` inside the suggested docker container image:
+```
+Read -1, expected <someNumber>, errno =1
+```
+
+Please refer to [this](https://github.com/feelpp/docker/issues/26).
+
 ## A note on Eigen usage
 In order to maintain back compability with the `Eigen` version inside the offical
 supported docker image (`pcafrica/mk`), `Eigen 3.4` or above features must not
