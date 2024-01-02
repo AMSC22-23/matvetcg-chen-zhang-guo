@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <iostream>
 #include <chrono>
-// #include "spai_openmp.hpp"
 #include "spai.hpp"
 
 #include <Eigen/Dense>
@@ -29,7 +28,6 @@ int main(int argc, char *argv[]) {
     SpMat A;
     // std::cout << "Current path is " << std::filesystem::current_path() << '\n';
     std::string path = "/home/jellyfish/shared-folder/matvetcg-chen-zhang-guo/src/objective5/mat.mtx";
-    // load_sparse_matrix(path, A);
     Eigen::loadMarket(A, path);
     // std::cout << "\nmatrix A:\n" << A;
     const unsigned size = A.rows();

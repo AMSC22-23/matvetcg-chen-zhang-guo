@@ -1,5 +1,5 @@
-#ifndef HH_SPAI_OPENMP__HH
-#define HH_SPAI_OPENMP__HH
+#ifndef HH_SPAI_MBASE___HH
+#define HH_SPAI_MBASE___HH
 //*****************************************************************
 // ......
 //*****************************************************************
@@ -14,7 +14,6 @@
 #include "MatrixWithVecSupport.hpp"
 #include <omp.h>
 
-
 template <class Matrix>
 void getBlockByTwoIndicesSet(const Matrix&A, Eigen::MatrixXd &AIJ, 
     const std::vector<int> &I, const std::vector<int> &J) {
@@ -23,7 +22,7 @@ void getBlockByTwoIndicesSet(const Matrix&A, Eigen::MatrixXd &AIJ,
     int n2 = J.size();
     for (int i=0; i<n1; i++) {
         for (int j=0; j<n2; j++) {
-            AIJ(i,j) = A.coeff(I[i], J[j]);
+            AIJ(i,j) = A(I[i], J[j]);
         }
     }
     // print to verify correctness
@@ -79,19 +78,20 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
     Eigen::MatrixXd AJ(Size, n2);
     for (int i=0; i<Size; i++) {
         for (int j=0; j<n2; j++) {
-            AJ(i,j) = A.coeff(i, J[j]);
+            AJ(i,j) = A(i, J[j]);
         }
     }
     // r
     if (flag==0) { r = AJ * m_k_triangular - e_k;} 
     if (flag==1) {
         // A * m_k - e_k
-        Eigen::VectorXd m_k_vector(Size);
+        std::vector<Scalar> m_k_vector(Size, 0.0);
         for (int i=0; i<Size; i++) {
             m_k_vector[i] = m_k[i];
         }
-        Eigen::VectorXd intermediate = A * m_k_vector;
-        r = intermediate - e_k;
+        std::vector<Scalar> intermediate = A * m_k_vector;
+        Eigen::Map<Eigen::VectorXd> intermediate_eigenVector(intermediate.data(), intermediate.size());
+        r = intermediate_eigenVector - e_k;
     } 
 
 }
@@ -102,39 +102,26 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
 // epsilon, can be one of {0.2, 0.3, 0.4, 0.5, 0.6} 
 namespace LinearAlgebra {
 template <class Matrix, typename Scalar>
-int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
+int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
 
         ASSERT((A.rows() == A.cols()), "The matrix must be squared!\n");
         const int Size = A.rows();
 
-        // When M is a Eigen::SparseMatrix and diagonal
+        // the initial sparsity of M is chosen to be diagonal
         // std::cout << "The initial sparsity of M which is chosen to be diagonal..." << std::endl;
+        M.resize(Size, Size);
         const Scalar diagonal_value = 1;
         const Scalar zero = 0;
         for (int i=0; i<Size; i++) {
             for (int j=0; j<Size; j++) {
-                if (i==j) { M.insert(i, j) = diagonal_value; }
-                else { M.insert(i,j) = zero; } 
+                if (i==j) { M(i, j) = diagonal_value; }
+                else { M(i,j) = zero; } 
             }
         }
-        M.makeCompressed();
         // std::cout << "matrix M:\n" << M << std::endl;
 
-        // the initial sparsity of M is chosen to be diagonal
-        // // std::cout << "The initial sparsity of M which is chosen to be diagonal..." << std::endl;
-        // M.resize(Size, Size);
-        // const Scalar diagonal_value = 1;
-        // const Scalar zero = 0;
-        // for (int i=0; i<Size; i++) {
-        //     for (int j=0; j<Size; j++) {
-        //         if (i==j) { M(i, j) = diagonal_value; }
-        //         else { M(i,j) = zero; } 
-        //     }
-        // }
-        // // std::cout << "matrix M:\n" << M << std::endl;
-
         // If M is chosen to be not diagonal
-        // // std::cout << "The initial sparsity of M which is chosen to be lkie..." << std::endl;
+        // std::cout << "The initial sparsity of M which is chosen to be lkie..." << std::endl;
         // M.resize(Size, Size);
         // const Scalar diagonal_value = 1;
         // const Scalar zero = 0;
@@ -145,11 +132,10 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
         //         else { M(i,j) = zero; } 
         //     }
         // }
-        // // std::cout << "matrix M:\n" << M << std::endl;
+        // std::cout << "matrix M:\n" << M << std::endl;
 
-        // parallel
+        
         #pragma omp parallel for
-
         // for every column of M
         for (int k=0; k<Size; k++) {
 
@@ -158,7 +144,7 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
             // J be the set of indices j such that m_k(j) != 0
             std::vector<int> J;
             for (int j=0; j<Size; j++) {
-                if (M.coeff(j,k)!=zero) { 
+                if (M(j,k)!=zero) { 
                     J.push_back(j); 
                     // std::cout << "the " << k << "-th column of M, adds new elements to J : " << j << std::endl;
                     }
@@ -169,7 +155,7 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
             for (int i=0; i<Size; i++) {
                 int flag = 0;
                 for (const auto &j : J) { 
-                    if (A.coeff(i,j)!=zero) {flag = 1;}
+                    if (A(i,j)!=zero) {flag = 1;}
                 }
                 if (flag==1) { 
                     I.push_back(i);
@@ -189,15 +175,18 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
             qrDecomposition(AIJ, Q, R);
 
             // e_k
-            Eigen::VectorXd e_k = Eigen::VectorXd::Zero(Size);
-            e_k[k] = 1.0;
+            Eigen::VectorXd e_k(Size);
+            for (int i=0; i<Size; i++) {
+                if (i==k) { e_k[i] = 1; }
+                else { e_k[i]=0; }
+            }
             // std::cout << "e_k :\n" << e_k << std::endl;
 
 
             // m_k
-            Eigen::VectorXd m_k = Eigen::VectorXd::Zero(Size);
+            Eigen::VectorXd m_k(Size);
             // r
-            Eigen::VectorXd r = Eigen::VectorXd::Zero(Size);
+            Eigen::VectorXd r(Size);
             computeRAndMk<decltype(A), decltype(epsilon)>(A, Size, Q, R, r, m_k, e_k, I, J, 0);
 
             // std::cout << "begin the loop iteration......" << std::endl;
@@ -239,8 +228,8 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
                     } else {
                         int flag = 0;
                         for (const auto &i : L) {
-                            // std::cout << " i=" << i << " j=" << j << " A(i,j)=" << A.coeff(i,j) << std::endl; 
-                            if (A.coeff(i,j)!=zero) {
+                            // std::cout << " i=" << i << " j=" << j << " A(i,j)=" << A(i,j) << std::endl; 
+                            if (A(i,j)!=zero) {
                                 flag = 1;
                                 // std::cout << "flag=1 " << std::endl;
                             }
@@ -255,11 +244,10 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
                 // (e) For each j ∈ J_triangular solve the minimization problem (10).
                 std::vector<Scalar> rou;
                 for (const auto &j : J_triangular) {
-                    Eigen::VectorXd e_j = Eigen::VectorXd::Zero(Size);
+                    std::vector<Scalar> e_j(Size, 0.0);
                     e_j[j] = 1.0;
-                    Eigen::VectorXd aej = A * e_j;
-                    // Eigen::Map<Eigen::VectorXd> aej_ev(aej.data(), aej.size());
-                    Eigen::VectorXd aej_ev = aej;
+                    std::vector<Scalar> aej = A * e_j;
+                    Eigen::Map<Eigen::VectorXd> aej_ev(aej.data(), aej.size());
                     Scalar m1 = r.dot(aej_ev);
                     Scalar m2 = std::pow(aej_ev.norm(),2);
                     Scalar miu_j = m1 / m2;
@@ -322,7 +310,7 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
                     } else {
                         int flag = 0;
                         for (const auto &j : J_merged) { 
-                            if (A.coeff(i,j)!=zero) {flag = 1;}
+                            if (A(i,j)!=zero) {flag = 1;}
                         }
                         if (flag==1) { 
                             I_triangular.push_back(i);
@@ -400,11 +388,14 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
 
             // k-th
             if (max_iter == iter) {
-                std::cout << "the " << k << "-th column of M, complete the loop iteration, the result is "  << "\nepsilon=" << epsilon << "    r.norm()=" << r.norm()  << "\nmax_iter="<< max_iter << "    iter=" << iter << "\n\n";
+                std::cout << "the " << k << "-th column of M, complete the loop iteration, the result is " 
+                << "\nepsilon=" << epsilon << "    r.norm()=" << r.norm() 
+                << "\nmax_iter="<< max_iter << "    iter=" << iter << "\n\n";}
             }
+
             // M
             for(int i=0; i<Size; i++) {
-                M.coeffRef(i,k) = m_k[i];
+                M(i,k) = m_k[i];
             }
         }
     

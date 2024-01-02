@@ -90,8 +90,6 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
             m_k_vector[i] = m_k[i];
         }
         Eigen::VectorXd intermediate = A * m_k_vector;
-        // Eigen::Map<Eigen::VectorXd> intermediate_eigenVector(intermediate.data(), intermediate.size());
-        // r = intermediate_eigenVector - e_k;
         r = intermediate - e_k;
     } 
 
@@ -190,10 +188,6 @@ int SPAI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
             // e_k
             Eigen::VectorXd e_k = Eigen::VectorXd::Zero(Size);
             e_k[k] = 1.0;
-            // for (int i=0; i<Size; i++) {
-            //     if (i==k) { e_k[k] = 1; }
-            //     else { e_k[i]=0; }
-            // }
             // std::cout << "e_k :\n" << e_k << std::endl;
 
 
@@ -306,7 +300,7 @@ int SPAI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                     J_triangular.swap(J_triangular_first);
                 }
                 
-                // print
+                // print to check
                 for (const auto &j : J_triangular) { 
                     // std::cout << "the " << k << "-th column of M, adds new elements to J_triangular : " << j << std::endl;
                 }
@@ -405,7 +399,7 @@ int SPAI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
             if (max_iter == iter) {
                 std::cout << "the " << k << "-th column of M, complete the loop iteration, the result is "  << "\nepsilon=" << epsilon << "    r.norm()=" << r.norm()  << "\nmax_iter="<< max_iter << "    iter=" << iter << "\n\n";
             }
-            // std::cout << "the " << k << "-th column of M, complete the loop iteration, the result is "  << "\nepsilon=" << epsilon << "    r.norm()=" << r.norm()  << "\nmax_iter="<< max_iter << "    iter=" << iter << "\n\n";
+            
             // M
             for(int i=0; i<Size; i++) {
                 M.coeffRef(i,k) = m_k[i];

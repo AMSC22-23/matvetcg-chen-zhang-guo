@@ -5,8 +5,9 @@
 #include <cstddef>
 #include <iostream>
 #include <chrono>
-// #include "spai_openmp.hpp"
-#include "spai.hpp"
+#include "spai_openmp.hpp"
+// #include "spai_mpi.hpp"
+// #include "spai.hpp"
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -25,11 +26,13 @@ using std::endl;
 int main(int argc, char *argv[]) {
     using namespace apsc::LinearAlgebra;
 
+    // 自己造一个A
+
+
     std::cout << "Reading the spd matrix A..." << std::endl;
     SpMat A;
     // std::cout << "Current path is " << std::filesystem::current_path() << '\n';
     std::string path = "/home/jellyfish/shared-folder/matvetcg-chen-zhang-guo/src/objective5/mat.mtx";
-    // load_sparse_matrix(path, A);
     Eigen::loadMarket(A, path);
     // std::cout << "\nmatrix A:\n" << A;
     const unsigned size = A.rows();
@@ -41,20 +44,22 @@ int main(int argc, char *argv[]) {
     SpMat B = SpMat(A.transpose()) - A;  // Check symmetry
     std::cout << "Norm of skew-symmetric part: " << B.norm() << std::endl;
 
-    // // get M
-    // std::cout << "Creating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)..." << std::endl;
-    // SpMat M(size, size);
-    // int max_iter = 10; 
-    // double epsilon = 0.6;    
-    // auto start_time = std::chrono::high_resolution_clock::now();
-    // LinearAlgebra::SPAI<decltype(A), decltype(epsilon)>(A, M, max_iter, epsilon);
-    // auto end_time = std::chrono::high_resolution_clock::now();
-    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-    // std::cout << "Time taken by SPAI_OPENMP: " << duration.count() << " microseconds" << std::endl;
-    // // std::cout << "\nmatrix M:\n" << M;
-    // SpMat identityMatrix(size, size);
-    // identityMatrix.setIdentity();
-    // std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix ).norm() << std::endl;
+    // get M
+    std::cout << "Creating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)..." << std::endl;
+    SpMat M(size, size);
+    int max_iter = 10; 
+    double epsilon = 0.6;    
+    auto start_time = std::chrono::high_resolution_clock::now();
+    LinearAlgebra::SPAI_OPENMP<decltype(A), decltype(epsilon)>(A, M, max_iter, epsilon);
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    std::cout << "Time taken by SPAI_OPENMP: " << duration.count() << " microseconds" << std::endl;
+    // std::cout << "\nM * A:\n" << M*A;
+    
+    SpMat identityMatrix(size, size);
+    identityMatrix.setIdentity();
+    std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix ).norm() << std::endl;
+
 
     // with CG
     // SpVec e = SpVec::Ones(size);
@@ -73,8 +78,8 @@ int main(int argc, char *argv[]) {
     const SpVec e = SpVec::Ones(size);
     SpVec b = A*e;
     SpVec x = SpVec::Zero(size);
-    // A = M * A;
-    // b = M * b;
+    A = M * A;
+    b = M * b;
     const double tol = 1.e-2;
     const int maxit = 1000;
     int result;
@@ -89,7 +94,6 @@ int main(int argc, char *argv[]) {
     std::cout << "relative residual: " << cg.error()      << std::endl;
     std::cout << "effective error:   " << (x-e).norm()    << std::endl;
 
-
     // with Eigen BiCGSTAB
     x = 0 * x;
     
@@ -102,8 +106,7 @@ int main(int argc, char *argv[]) {
     std::cout << "#iterations:       " << bicgstab.iterations() << std::endl;
     std::cout << "relative residual: " << bicgstab.error()      << std::endl;
     std::cout << "effective error:   " << (x-e).norm()    << std::endl;
-
-
+    
 
     return 0;
 }
