@@ -451,12 +451,14 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
         
         std::cout << "thread " << world_rank << " completes for loop and gather is beginning" << std::endl;
         MPI_Barrier(mpi_comm);
-
         MPI_Gatherv(world_result, Size*world_ncols, MPI_DOUBLE, manager_result, recvcounts, displs, MPI_DOUBLE, 0, mpi_comm);
+        MPI_Barrier(mpi_comm);
+        
         if (world_rank==0) {
             for (int i = 0; i < Size; i++) {
                 for (int j = 0; j < Size; j++) {
-                    M.coeffRef(i,j) = world_result[i*Size+j];
+                    if (i < world_ncols) { M.coeffRef(i,j) = world_result[i*Size+j]; }
+                    else { M.coeffRef(i,j) = manager_result[i*Size+j]; }
                 }
             }
         }

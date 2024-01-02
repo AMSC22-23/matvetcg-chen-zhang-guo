@@ -1,7 +1,12 @@
-// #include <MatrixWithVecSupport.hpp>
-// #include <Vector.hpp>
-// #include <Matrix/Matrix.hpp>
-// #include <utils.hpp>
+
+/*
+ * test_spai.cpp
+ *
+ *  Created on: Nov 14, 2023
+ *      Author: Ying Zhang
+ */
+
+#include <cstring>
 #include <cstddef>
 #include <iostream>
 #include <chrono>
@@ -9,9 +14,6 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-// #include <fstream>
-#include <cstring>
-// #include <filesystem>
 #include <unsupported/Eigen/SparseExtra>
 
 using SpMat=Eigen::SparseMatrix<double>;
