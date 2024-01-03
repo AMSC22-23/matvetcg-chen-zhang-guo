@@ -33,7 +33,7 @@ include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 # add_executable(matrix_with_vec_support_ls_test demo/matrix_with_vec_support_ls_test.cpp)
 
 # add_executable(test_original objective5/test_original.cpp)
-add_executable(test_spai objective5/test_spai.cpp)
+# add_executable(test_spai objective5/test_spai.cpp)
 # add_executable(test_mpi objective5/test_mpi.cpp)
 # target_link_libraries(test_mpi MPI::MPI_CXX)
 # add_executable(test_openmp objective5/test_openmp.cpp)

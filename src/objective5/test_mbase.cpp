@@ -10,16 +10,16 @@
 #include <chrono>
 #include "spai_mbase.hpp"
 
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
+// #include <Eigen/Dense>
+// #include <Eigen/Sparse>
 #include <cstring>
-#include <unsupported/Eigen/SparseExtra>
+// #include <unsupported/Eigen/SparseExtra>
 
 #include "Matrix/Matrix.hpp"
 #include "MatrixWithVecSupport.hpp"
-
-using SpMat=Eigen::SparseMatrix<double>;
-using SpVec=Eigen::VectorXd;
+#include "Vector.hpp"
+#include "cg.hpp"
+#include "cg_mpi.hpp"
 
 using std::cout;
 using std::endl;
@@ -29,10 +29,13 @@ int main(int argc, char *argv[]) {
     using namespace apsc::LinearAlgebra;
 
     std::cout << "Creating a random matrix A..." << std::endl;
-    int n = 6;
-    Matrix<double,ORDERING::ROWMAJOR> A(n,n);
-    A.fillRandom();
-    std::cout << "\nmatrix A:\n" << A;
+    constexpr std::size_t n = 6;
+    MatrixWithVecSupport<double, std::vector<double>, ORDERING::ROWMAJOR> A(n,n);
+    // dense and random fill
+    // A.fillRandom();
+    // spd fill
+    Utils::default_spd_fill<decltype(A), double>(A);
+    std::cout << "matrix A:\n" << A;
     const unsigned size = A.rows();
     std::cout << "A has been created successfully" << std::endl;
 
@@ -46,17 +49,17 @@ int main(int argc, char *argv[]) {
     }
     std::cout << "Non zero entries:" << nonZeros << std::endl;
     // Check symmetry
-    Matrix<double,ORDERING::ROWMAJOR> AT(n,n);
+    MatrixWithVecSupport<double, std::vector<double>, ORDERING::ROWMAJOR> AT(n,n);
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; j++) {
             AT(i,j) = A(j,i);
         }
     }
     // std::cout << "Norm of skew-symmetric part: " << (AT-A).norm() << std::endl;
-
+    
     // get M
     std::cout << "Creating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)..." << std::endl;
-    Matrix<double,ORDERING::ROWMAJOR> M(size, size);
+    MatrixWithVecSupport<double, std::vector<double>, ORDERING::ROWMAJOR> M(size, size);
     int max_iter = 10; 
     double epsilon = 0.6;    
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -64,33 +67,56 @@ int main(int argc, char *argv[]) {
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     std::cout << "Time taken by SPAI_MBASE: " << duration.count() << " microseconds" << std::endl;
-    std::cout << "\nmatrix M:\n" << M << "\n\n";
+    std::cout << "matrix M:\n" << M << "\n";
     // std::cout << "\nM * A:\n" << M*A;
-    Matrix<double,ORDERING::ROWMAJOR> identityMatrix(size, size);
+    // std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix).norm() << std::endl;
+
+    // identityMatrix
+    MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR> identityMatrix(size, size);
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; j++) {
             identityMatrix(i,j) = 0;
             if (i==j) { identityMatrix(i,j)=1; }
         }
     }
-    // std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix).norm() << std::endl;
 
-    // 用Eigen的官方方法，类型不一致，用不了
-    // 试试手搓的CG和CG_MPI
 
-    // SpVec e = SpVec::Ones(size);
-    // SpVec b = A * e;
-    // SpVec x(size);
-    // x = 0*x;
-    // double tol = 1.e-4;
-    // int result, maxit = 1000;
-    // result = LinearAlgebra::CG_MODIFIED<decltype(A), decltype(x), decltype(tol)>(A, x, b, M, maxit, tol);        // Solve system
-    // std::cout << "hand-made CG with SPAI "<< std::endl;
-    // std::cout << "CG flag = " << result << std::endl;
-    // std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
-    // std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
+    // with hand-made CG and identityMatrix
+    MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR> AA(size, size);
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            AA(i,j) = A(i,j);
+        }
+    }
+    Vector e(size, static_cast<double>(1));
+    Vector b = AA * e;
+    Vector x(size, static_cast<double>(0));
+    double tol = 1.e-4;
+    int result, maxit = 1000;
+    result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(identityMatrix), decltype(tol)>(AA, x, b, identityMatrix, maxit, tol);        // Solve system
+    std::cout << "hand-made CG with identityMatrix: "<< std::endl;
+    std::cout << "CG flag = " << result << std::endl;
+    std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
+    std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
 
-    
+    // with hand-made CG and M
+    MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR> MM(size, size);
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            MM(i,j) = M(i,j);
+        }
+    }
+    x = x * 0.0;
+    result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(MM), decltype(tol)>(AA, x, b, MM, maxit, tol);        // Solve system
+    std::cout << "hand-made CG with SPAI: "<< std::endl;
+    std::cout << "CG flag = " << result << std::endl;
+    std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
+    std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
+
+
+
+    // TODO: with hand-made CG_MPI
+    // 重开一个cpp写MPI_Init等
 
 
     return 0;
