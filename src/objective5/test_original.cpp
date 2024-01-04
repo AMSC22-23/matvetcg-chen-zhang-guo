@@ -1,16 +1,17 @@
-// #include <MatrixWithVecSupport.hpp>
-// #include <Vector.hpp>
-// #include <Matrix/Matrix.hpp>
-// #include <utils.hpp>
+/*
+ * test_original.cpp
+ *
+ *  Created on: Dec 25, 2023
+ *      Author: Ying Zhang
+ */
+
 #include <cstddef>
 #include <iostream>
 #include <chrono>
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-// #include <fstream>
 #include <cstring>
-// #include <filesystem>
 #include <unsupported/Eigen/SparseExtra>
 
 using SpMat=Eigen::SparseMatrix<double>;
@@ -37,19 +38,6 @@ int main(int argc, char *argv[]) {
     std::cout << "Non zero entries:" << A.nonZeros() << std::endl;
     SpMat B = SpMat(A.transpose()) - A;  // Check symmetry
     std::cout << "Norm of skew-symmetric part: " << B.norm() << std::endl;
-
-    // with CG
-    // SpVec e = SpVec::Ones(size);
-    // SpVec b = A * e;
-    // SpVec x(size);
-    // x = 0*x;
-    // double tol = 1.e-4;
-    // int result, maxit = 1000;
-    // result = LinearAlgebra::CG_MODIFIED<decltype(A), decltype(x), decltype(tol)>(A, x, b, M, maxit, tol);        // Solve system
-    // std::cout << "hand-made CG with SPAI "<< std::endl;
-    // std::cout << "CG flag = " << result << std::endl;
-    // std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
-    // std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
 
     // with Eigen CG
     const SpVec e = SpVec::Ones(size);

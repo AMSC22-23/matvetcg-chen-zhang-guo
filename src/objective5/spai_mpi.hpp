@@ -1,7 +1,48 @@
+/*
+ * spai_mpi.hpp
+ *
+ *  Created on: Dec 15, 2023
+ *      Author: Ying Zhang
+ */
+
 #ifndef HH_SPAI_MPI___HH
 #define HH_SPAI_MPI___HH
 //*****************************************************************
-// ......
+// SParse Approximate Inverse algorithm - SPAI supporting Eigen::SparseMatrix and MPI
+// 
+// Every thread in MPI executes one to several columns of matrix M in parallel.
+//
+// The SPAI algorithm computes a sparse approximate inverse M of a general 
+// sparse matrix A. It is inherently parallel, since the columns of M are 
+// calculated independently of one another.
+//
+// Grote M J, Huckle T. Parallel preconditioning with sparse 
+// approximate inverses[J]. SIAM Journal on Scientific Computing, 
+// 1997, 18(3): 838-853.
+//
+// Abstract. 
+// A parallel preconditioner is presented for the solution of 
+// general sparse linear systems of equations. A sparse approximate 
+// inverse is computed explicitly and then applied as a preconditioner 
+// to an iterative method. The computation of the preconditioner is 
+// inherently parallel, and its application only requires a 
+// matrix-vector product. The sparsity pattern of the approximate 
+// inverse is not imposed a priori but captured automatically. This keeps 
+// the amount of work and the number of nonzero entries in the 
+// preconditioner to a minimum. Rigorous bounds on the clustering of 
+// the eigenvalues and the singular values are derived for the 
+// preconditioned system, and the proximity of the approximate to the 
+// true inverse is estimated.
+// 
+// Upon successful return, output arguments have the following values:
+//
+//        A  --  matrix A in equation Ax=b
+//        M  --  the sparse approximate inverse of matrix A
+// max_iter  --  the number of iterations performed to limit 
+//               the maximal fill-in per column in M
+//  epsilon  --  the threshold of stopping criterion on residual ||r||
+//               for every column of M
+//
 //*****************************************************************
 
 #include <vector>
@@ -18,6 +59,10 @@
 #include <mpi.h>
 
 
+/*! 
+ * Extract a block from matrix `A` specified by the indices set provided in 
+ * vectors `I` and `J` and stores the result in the Eigen::MatrixXd `AIJ`.
+ */
 template <class Matrix>
 void getBlockByTwoIndicesSet(const Matrix&A, Eigen::MatrixXd &AIJ, 
     const std::vector<int> &I, const std::vector<int> &J) {
@@ -42,6 +87,12 @@ void getBlockByTwoIndicesSet(const Matrix&A, Eigen::MatrixXd &AIJ,
 
 }
 
+/*!
+ * Performs the QR decomposition of a given matrix `A` and returns 
+ * the results in matrices `Q` and `R`. The QR decomposition is achieved 
+ * using the ColPivHouseholderQR decomposition method provided 
+ * by the Eigen library.
+ */
 void qrDecomposition(const Eigen::MatrixXd &A, Eigen::MatrixXd &Q, Eigen::MatrixXd &R) {
 
     // // std::cout << "\nBegin the QR decomposition process......";
@@ -54,6 +105,12 @@ void qrDecomposition(const Eigen::MatrixXd &A, Eigen::MatrixXd &Q, Eigen::Matrix
 
 }
 
+/*!
+ * According to the process required in the paper, compute k-th column `m_k` of M
+ * and the corresponding residual `r`. This function will be used many times in the
+ * entire algorithm, but the first computing for `r` is different from others for
+ * every column of M so we use the variable `flag` to distinguish
+ */
 template <class Matrix, typename Scalar>
 void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q, 
     const Eigen::MatrixXd &R, Eigen::VectorXd &r, Eigen::VectorXd &m_k,
@@ -94,17 +151,17 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
             m_k_vector[i] = m_k[i];
         }
         Eigen::VectorXd intermediate = A * m_k_vector;
-        // Eigen::Map<Eigen::VectorXd> intermediate_eigenVector(intermediate.data(), intermediate.size());
-        // r = intermediate_eigenVector - e_k;
         r = intermediate - e_k;
     } 
 
 }
 
 
-// Scalar, usually double
-// max_iter, usually Size or you can set your own
-// epsilon, can be one of {0.2, 0.3, 0.4, 0.5, 0.6} 
+/*!
+ * @note Scalar is usually double
+ * @param max_iter is usually Size or you can set your own
+ * @param epsilon can be selected from set {0.2, 0.3, 0.4, 0.5, 0.6} 
+ */
 namespace LinearAlgebra {
 template <class Matrix, typename Scalar>
 int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI_Comm mpi_comm) {
@@ -121,8 +178,8 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
         MPI_Barrier(mpi_comm);
         const int Size = A.rows();
         
-        // When M is a Eigen::SparseMatrix and diagonal
-        // std::cout << "The initial sparsity of M which is chosen to be diagonal..." << std::endl;
+        // // strategy 1: the initial sparsity of M is chosen to be diagonal
+        std::cout << "The initial sparsity of M which is chosen to be diagonal..." << std::endl;
         const Scalar diagonal_value = 1;
         const Scalar zero = 0;
         for (int i=0; i<Size; i++) {
@@ -132,33 +189,20 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
             }
         }
         M.makeCompressed();
-        // std::cout << "matrix M:\n" << M << std::endl;
-
-        // the initial sparsity of M is chosen to be diagonal
-        // // std::cout << "The initial sparsity of M which is chosen to be diagonal..." << std::endl;
-        // M.resize(Size, Size);
-        // const Scalar diagonal_value = 1;
-        // const Scalar zero = 0;
-        // for (int i=0; i<Size; i++) {
-        //     for (int j=0; j<Size; j++) {
-        //         if (i==j) { M(i, j) = diagonal_value; }
-        //         else { M(i,j) = zero; } 
-        //     }
-        // }
         // // std::cout << "matrix M:\n" << M << std::endl;
 
-        // If M is chosen to be not diagonal
-        // // std::cout << "The initial sparsity of M which is chosen to be lkie..." << std::endl;
-        // M.resize(Size, Size);
+        // // strategy 2: M is chosen to be not diagonal
+        // std::cout << "The initial sparsity of M which is chosen to be lkie..." << std::endl;
         // const Scalar diagonal_value = 1;
         // const Scalar zero = 0;
         // for (int i=0; i<Size; i++) {
         //     for (int j=0; j<Size; j++) {
-        //         if (i==j) { M(i, j) = diagonal_value; }
-        //         else if (i==j+1) { M(i, j) = diagonal_value; }
-        //         else { M(i,j) = zero; } 
+        //         if (i==j) { M.insert(i, j) = diagonal_value; }
+        //         else if (i==j+1) { M.insert(i, j) = diagonal_value; }
+        //         else { M.insert(i,j) = zero; } 
         //     }
         // }
+        // M.makeCompressed();
         // // std::cout << "matrix M:\n" << M << std::endl;
 
         // number of cols to be processed in this thread
@@ -189,7 +233,7 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
                 }
             }
             // std::cout << "(b) part is processing......" << std::endl;
-            //  I be the set of indices i such that A(i, J) is not identically zero.
+            // I be the set of indices i such that A(i, J) is not identically zero.
             std::vector<int> I;
             for (int i=0; i<Size; i++) {
                 int flag = 0;
@@ -216,10 +260,6 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
             // e_k
             Eigen::VectorXd e_k = Eigen::VectorXd::Zero(Size);
             e_k[k] = 1.0;
-            // for (int i=0; i<Size; i++) {
-            //     if (i==k) { e_k[k] = 1; }
-            //     else { e_k[i]=0; }
-            // }
             // std::cout << "e_k :\n" << e_k << std::endl;
 
 
@@ -240,14 +280,14 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
                 // (c) 
                 // std::cout << "(c) part is processing......" << std::endl;
                 std::vector<int> L;
-                // Strategy 1: Set L equal to the set of indices l for which r(l) != 0
+                // // Strategy 1: Set L equal to the set of indices l for which r(l) != 0
                 // for (int i=0; i<Size; i++) {
                 //     if (r[i]!=0) { 
                 //         L.push_back(i); 
                 //         // std::cout << "the " << k << "-th column of M, adds new elements to L : " << i << std::endl;
                 //     }
                 // }
-                // Strategy 2: according to suggestion of remarks.5, choose the largest elements in r
+                // // Strategy 2: according to suggestion of remarks.5, choose the largest elements in r
                 int max_index = 0;
                 for (int i=0; i<Size; i++) {
                     if (std::abs(r[i]) > std::abs(r[max_index])) { 
@@ -287,12 +327,10 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
                     Eigen::VectorXd e_j = Eigen::VectorXd::Zero(Size);
                     e_j[j] = 1.0;
                     Eigen::VectorXd aej = A * e_j;
-                    // Eigen::Map<Eigen::VectorXd> aej_ev(aej.data(), aej.size());
                     Eigen::VectorXd aej_ev = aej;
                     Scalar m1 = r.dot(aej_ev);
                     Scalar m2 = std::pow(aej_ev.norm(),2);
                     Scalar miu_j = m1 / m2;
-                    // Scalar miu_j = - (r.transpose() * aej_ev) / std::pow(aej_ev.norm(),2);
                     Scalar rou_j = std::pow(r.norm(),2) + miu_j*(r.dot(aej_ev));
                     rou.push_back(rou_j);
                 }
@@ -429,8 +467,11 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
 
             // k-th
             if (max_iter == iter) {
-                std::cout << "the " << k << "-th column of M, complete the loop iteration, the result is "  << "\nepsilon=" << epsilon << "    r.norm()=" << r.norm()  << "\nmax_iter="<< max_iter << "    iter=" << iter << "\n\n";
+                std::cout << "the " << k << "-th column of M, complete the loop iteration, the result is "  
+                << "\nepsilon=" << epsilon << "    r.norm()=" << r.norm()  
+                << "\nmax_iter="<< max_iter << "    iter=" << iter << "\n\n";
             }
+
             // copy m_k to world_result
             int kk = k - world_start;
             for(int i=0; i<Size; i++) {
@@ -462,9 +503,11 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
                 }
             }
         }
+        
         // std::cout << "\nmatrix M:\n" << M << "\n\n";
 
         return 1;
     }
 }
+
 #endif

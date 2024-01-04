@@ -2,7 +2,7 @@
 /*
  * test_spai.cpp
  *
- *  Created on: Nov 14, 2023
+ *  Created on: Dec 14, 2023
  *      Author: Ying Zhang
  */
 
@@ -56,19 +56,6 @@ int main(int argc, char *argv[]) {
     identityMatrix.setIdentity();
     std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix ).norm() << std::endl;
 
-    // with CG
-    // SpVec e = SpVec::Ones(size);
-    // SpVec b = A * e;
-    // SpVec x(size);
-    // x = 0*x;
-    // double tol = 1.e-4;
-    // int result, maxit = 1000;
-    // result = LinearAlgebra::CG_MODIFIED<decltype(A), decltype(x), decltype(tol)>(A, x, b, M, maxit, tol);        // Solve system
-    // std::cout << "hand-made CG with SPAI "<< std::endl;
-    // std::cout << "CG flag = " << result << std::endl;
-    // std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
-    // std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
-
     // with Eigen CG
     const SpVec e = SpVec::Ones(size);
     SpVec b = A*e;
@@ -101,7 +88,6 @@ int main(int argc, char *argv[]) {
     std::cout << "#iterations:       " << bicgstab.iterations() << std::endl;
     std::cout << "relative residual: " << bicgstab.error()      << std::endl;
     std::cout << "effective error:   " << (x-e).norm()    << std::endl;
-
 
 
     return 0;

@@ -1,5 +1,5 @@
 /*
- * test_mbase.hpp
+ * test_mbase.cpp
  *
  *  Created on: Jan 1, 2024
  *      Author: Ying Zhang
@@ -10,16 +10,14 @@
 #include <chrono>
 #include "spai_mbase.hpp"
 
-// #include <Eigen/Dense>
-// #include <Eigen/Sparse>
 #include <cstring>
-// #include <unsupported/Eigen/SparseExtra>
 
 #include "Matrix/Matrix.hpp"
 #include "MatrixWithVecSupport.hpp"
 #include "Vector.hpp"
 #include "cg.hpp"
-#include "cg_mpi.hpp"
+// #include "cg_mpi.hpp"
+#include "tools.hpp"
 
 using std::cout;
 using std::endl;
@@ -28,7 +26,7 @@ using std::endl;
 int main(int argc, char *argv[]) {
     using namespace apsc::LinearAlgebra;
 
-    std::cout << "Creating a random matrix A..." << std::endl;
+    std::cout << "Creating a spd matrix A..." << std::endl;
     constexpr std::size_t n = 6;
     MatrixWithVecSupport<double, std::vector<double>, ORDERING::ROWMAJOR> A(n,n);
     // dense and random fill
@@ -68,7 +66,7 @@ int main(int argc, char *argv[]) {
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     std::cout << "Time taken by SPAI_MBASE: " << duration.count() << " microseconds" << std::endl;
     std::cout << "matrix M:\n" << M << "\n";
-    // std::cout << "\nM * A:\n" << M*A;
+    std::cout << "\nM * A:\n" << Tools::multiply_two_matrix(M, A) << std::endl;
     // std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix).norm() << std::endl;
 
     // identityMatrix
@@ -107,16 +105,13 @@ int main(int argc, char *argv[]) {
         }
     }
     x = x * 0.0;
-    result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(MM), decltype(tol)>(AA, x, b, MM, maxit, tol);        // Solve system
+    AA = Tools::multiply_two_matrix(MM, AA);
+    Vector bb = MM * b;
+    result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(MM), decltype(tol)>(AA, x, bb, identityMatrix, maxit, tol);        // Solve system
     std::cout << "hand-made CG with SPAI: "<< std::endl;
     std::cout << "CG flag = " << result << std::endl;
     std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
     std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
-
-
-
-    // TODO: with hand-made CG_MPI
-    // 重开一个cpp写MPI_Init等
 
 
     return 0;
