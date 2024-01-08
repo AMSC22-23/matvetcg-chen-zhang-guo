@@ -76,9 +76,9 @@ class MPISparseMatrix {
                                     Matrix>) {
       if (mpi_rank == 0 && !compressed_global_sparse_matrix.isCompressed()) {
         dead_signal = 1;
-        MPI_Bcast(&dead_signal, 1, mpi_typeof(decltype(dead_signal){}), 0,
-                  mpi_comm);
       }
+      MPI_Bcast(&dead_signal, 1, mpi_typeof(decltype(dead_signal){}), 0,
+                mpi_comm);
       if (dead_signal) {
         throw std::invalid_argument(
             "Received a not compressed Eigen::SparseMatrix");
