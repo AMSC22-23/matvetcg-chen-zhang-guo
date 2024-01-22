@@ -477,7 +477,7 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
     
         // std::cout << "\nmatrix M:\n" << M << "\n\n";
 
-        return 1;
+        return 0;
     }
 }
 
