@@ -1,3 +1,4 @@
+
 /*
  * test_openmp.cpp
  *
@@ -5,6 +6,8 @@
  *      Author: Ying Zhang
  */
 
+#include <cstring>
+#include <filesystem>
 #include <cstddef>
 #include <iostream>
 #include <chrono>
@@ -12,7 +15,6 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include <cstring>
 #include <unsupported/Eigen/SparseExtra>
 
 using SpMat=Eigen::SparseMatrix<double>;
@@ -25,14 +27,34 @@ using std::endl;
 int main(int argc, char *argv[]) {
     using namespace apsc::LinearAlgebra;
 
+    // Check if a filename is provided in the command line arguments
+    if (argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " <filename> <max_iter> <epsilon>" << std::endl
+                  << "<max_iter> is the maximal number of iterations to limit fill-in per column in M" << std::endl
+                  << "<epsilon> is the stopping criterion on ||r||2" << std::endl;
+        return 1; // Exit with an error code
+    }
+    
+    std::cout << "Current path is " << std::filesystem::current_path() << '\n';
+    std::string path = std::filesystem::current_path().string() + "/inputs/";
+    path = path + argv[1];
+
+    // Check if the file is opened successfully
+    std::ifstream inputFile(path);
+    if (!inputFile.is_open()) {
+        std::cerr << "Error opening file: " << path << std::endl 
+                  << "The mtx file should be placed in the **src/inputs** directory " << std::endl;
+        return 1; // Exit with an error code
+    }
+    inputFile.close();
+    
+
     std::cout << "Reading the spd matrix A..." << std::endl;
     SpMat A;
-    // std::cout << "Current path is " << std::filesystem::current_path() << '\n';
-    std::string path = "/home/jellyfish/shared-folder/matvetcg-chen-zhang-guo/src/objective5/mat.mtx";
     Eigen::loadMarket(A, path);
-    // std::cout << "\nmatrix A:\n" << A;
     const unsigned size = A.rows();
     std::cout << "A has been loaded successfully" << std::endl;
+    std::cout << "\nmatrix A:\n" << A;
 
     // Check A properties
     std::cout << "Matrix size:"<< A.rows() << " X " << A.cols() << std::endl;
@@ -43,20 +65,22 @@ int main(int argc, char *argv[]) {
     // get M
     std::cout << "Creating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)..." << std::endl;
     SpMat M(size, size);
-    int max_iter = 10; 
-    double epsilon = 0.6;    
+    int max_iter; 
+    std::stringstream(argv[2]) >> max_iter;
+    double epsilon;   
+    std::stringstream(argv[3]) >> epsilon;   
     auto start_time = std::chrono::high_resolution_clock::now();
     LinearAlgebra::SPAI_OPENMP<decltype(A), decltype(epsilon)>(A, M, max_iter, epsilon);
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     std::cout << "Time taken by SPAI_OPENMP: " << duration.count() << " microseconds" << std::endl;
     // std::cout << "\nM * A:\n" << M*A;
-    
     SpMat identityMatrix(size, size);
     identityMatrix.setIdentity();
     std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix ).norm() << std::endl;
 
-    // with Eigen CG
+
+    // 1) with Eigen CG
     const SpVec e = SpVec::Ones(size);
     SpVec b = A*e;
     SpVec x = SpVec::Zero(size);
@@ -76,7 +100,8 @@ int main(int argc, char *argv[]) {
     std::cout << "relative residual: " << cg.error()      << std::endl;
     std::cout << "effective error:   " << (x-e).norm()    << std::endl;
 
-    // with Eigen BiCGSTAB
+
+    // 2) with Eigen BiCGSTAB
     x = 0 * x;
     
     Eigen::BiCGSTAB<SpMat> bicgstab;

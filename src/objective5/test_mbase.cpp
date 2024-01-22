@@ -1,3 +1,4 @@
+
 /*
  * test_mbase.cpp
  *
@@ -5,12 +6,12 @@
  *      Author: Ying Zhang
  */
 
+#include <cstring>
+#include <filesystem>
 #include <cstddef>
 #include <iostream>
 #include <chrono>
 #include "spai_mbase.hpp"
-
-#include <cstring>
 
 #include "Matrix/Matrix.hpp"
 #include "MatrixWithVecSupport.hpp"
@@ -79,7 +80,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    // with hand-made CG and identityMatrix
+    // 1) with hand-made CG and identityMatrix
     MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR> AA(size, size);
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; j++) {
@@ -97,7 +98,7 @@ int main(int argc, char *argv[]) {
     std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
     std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
 
-    // with hand-made CG and M
+    // 2) with hand-made CG and M
     MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR> MM(size, size);
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; j++) {

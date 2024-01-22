@@ -1,3 +1,4 @@
+
 /*
  * test_original.cpp
  *
@@ -5,13 +6,14 @@
  *      Author: Ying Zhang
  */
 
+#include <cstring>
+#include <filesystem>
 #include <cstddef>
 #include <iostream>
 #include <chrono>
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include <cstring>
 #include <unsupported/Eigen/SparseExtra>
 
 using SpMat=Eigen::SparseMatrix<double>;
@@ -24,14 +26,32 @@ using std::endl;
 int main(int argc, char *argv[]) {
     // using namespace apsc::LinearAlgebra;
 
+    // Check if a filename is provided in the command line arguments
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
+        return 1; // Exit with an error code
+    }
+    
+    std::cout << "Current path is " << std::filesystem::current_path() << '\n';
+    std::string path = std::filesystem::current_path().string() + "/inputs/";
+    path = path + argv[1];
+
+    // Check if the file is opened successfully
+    std::ifstream inputFile(path);
+    if (!inputFile.is_open()) {
+        std::cerr << "Error opening file: " << path << std::endl 
+                  << "The mtx file should be placed in the **src/inputs** directory " << std::endl;
+        return 1; // Exit with an error code
+    }
+    inputFile.close();
+
+    
     std::cout << "Reading the spd matrix A..." << std::endl;
     SpMat A;
-    // std::cout << "Current path is " << std::filesystem::current_path() << '\n';
-    std::string path = "/home/jellyfish/shared-folder/matvetcg-chen-zhang-guo/src/objective5/mat.mtx";
     Eigen::loadMarket(A, path);
-    // std::cout << "\nmatrix A:\n" << A;
     const unsigned size = A.rows();
     std::cout << "A has been loaded successfully" << std::endl;
+    std::cout << "\nmatrix A:\n" << A;
 
     // Check A properties
     std::cout << "Matrix size:"<< A.rows() << " X " << A.cols() << std::endl;
@@ -39,7 +59,8 @@ int main(int argc, char *argv[]) {
     SpMat B = SpMat(A.transpose()) - A;  // Check symmetry
     std::cout << "Norm of skew-symmetric part: " << B.norm() << std::endl;
 
-    // with Eigen CG
+
+    // 1) with Eigen CG
     const SpVec e = SpVec::Ones(size);
     SpVec b = A*e;
     SpVec x = SpVec::Zero(size);
@@ -57,7 +78,8 @@ int main(int argc, char *argv[]) {
     std::cout << "relative residual: " << cg.error()      << std::endl;
     std::cout << "effective error:   " << (x-e).norm()    << std::endl;
 
-    // with Eigen BiCGSTAB
+
+    // 2) with Eigen BiCGSTAB
     x = 0 * x;
     
     Eigen::BiCGSTAB<SpMat> bicgstab;
@@ -69,7 +91,6 @@ int main(int argc, char *argv[]) {
     std::cout << "#iterations:       " << bicgstab.iterations() << std::endl;
     std::cout << "relative residual: " << bicgstab.error()      << std::endl;
     std::cout << "effective error:   " << (x-e).norm()    << std::endl;
-
 
 
     return 0;
