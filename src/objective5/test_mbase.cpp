@@ -27,14 +27,24 @@ using std::endl;
 int main(int argc, char *argv[]) {
     using namespace apsc::LinearAlgebra;
 
+    // Check if a filename is provided in the command line arguments
+    if (argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " <n> <max_iter> <epsilon>" << std::endl
+                  << "<n> is the the number of row/column of matrix A" << std::endl
+                  << "<max_iter> is the maximal number of iterations to limit fill-in per column in M" << std::endl
+                  << "<epsilon> is the stopping criterion on ||r||2" << std::endl;
+        return 1; // Exit with an error code
+    }
+
     std::cout << "Creating a spd matrix A..." << std::endl;
-    constexpr std::size_t n = 6;
+    int n;
+    std::stringstream(argv[2]) >> n;
     MatrixWithVecSupport<double, std::vector<double>, ORDERING::ROWMAJOR> A(n,n);
     // dense and random fill
     // A.fillRandom();
     // spd fill
     Utils::default_spd_fill<decltype(A), double>(A);
-    std::cout << "matrix A:\n" << A;
+    // std::cout << "matrix A:\n" << A;
     const unsigned size = A.rows();
     std::cout << "A has been created successfully" << std::endl;
 
@@ -59,15 +69,17 @@ int main(int argc, char *argv[]) {
     // get M
     std::cout << "Creating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)..." << std::endl;
     MatrixWithVecSupport<double, std::vector<double>, ORDERING::ROWMAJOR> M(size, size);
-    int max_iter = 10; 
-    double epsilon = 0.6;    
+    int max_iter; 
+    std::stringstream(argv[2]) >> max_iter;
+    double epsilon;   
+    std::stringstream(argv[3]) >> epsilon;    
     auto start_time = std::chrono::high_resolution_clock::now();
     LinearAlgebra::SPAI_MBASE<decltype(A), decltype(epsilon)>(A, M, max_iter, epsilon);
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     std::cout << "Time taken by SPAI_MBASE: " << duration.count() << " microseconds" << std::endl;
-    std::cout << "matrix M:\n" << M << "\n";
-    std::cout << "\nM * A:\n" << Tools::multiply_two_matrix(M, A) << std::endl;
+    // std::cout << "matrix M:\n" << M << "\n";
+    // std::cout << "\nM * A:\n" << Tools::multiply_two_matrix(M, A) << std::endl;
     // std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix).norm() << std::endl;
 
     // identityMatrix
