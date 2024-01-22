@@ -29,9 +29,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Reading the spd matrix A..." << std::endl;
     SpMat A;
     // std::cout << "Current path is " << std::filesystem::current_path() << '\n';
-    std::string path = "/home/jellyfish/shared-folder/matvetcg-chen-zhang-guo/src/objective5/mat.mtx";
+    std::string path = "/home/jellyfish/shared-folder/matvetcg-chen-zhang-guo/src/objective5/python_test.mtx";
     Eigen::loadMarket(A, path);
-    // std::cout << "\nmatrix A:\n" << A;
+    std::cout << "\nmatrix A:\n" << A;
     const unsigned size = A.rows();
     std::cout << "A has been loaded successfully" << std::endl;
 
@@ -44,13 +44,13 @@ int main(int argc, char *argv[]) {
     // get M
     std::cout << "Creating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)..." << std::endl;
     SpMat M(size, size);
-    int max_iter = 10; 
+    int max_iter = 2; 
     double epsilon = 0.6;    
     auto start_time = std::chrono::high_resolution_clock::now();
     LinearAlgebra::SPAI<decltype(A), decltype(epsilon)>(A, M, max_iter, epsilon);
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-    std::cout << "Time taken by SPAI_OPENMP: " << duration.count() << " microseconds" << std::endl;
+    std::cout << "Time taken by SPAI: " << duration.count() << " microseconds" << std::endl;
     // std::cout << "\nM * A:\n" << M*A;
     SpMat identityMatrix(size, size);
     identityMatrix.setIdentity();

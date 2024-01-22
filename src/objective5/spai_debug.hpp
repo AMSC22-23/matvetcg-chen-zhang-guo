@@ -1,19 +1,17 @@
 /*
- * spai_mbase.hpp
+ * spai.hpp
  *
- *  Created on: Jan 1, 2024
+ *  Created on: Dec 10, 2023
  *      Author: Ying Zhang
  */
 
-#ifndef HH_SPAI_MBASE___HH
-#define HH_SPAI_MBASE___HH
+#ifndef HH_SPAI___HH
+#define HH_SPAI___HH
 //*****************************************************************
-// SParse Approximate Inverse algorithm - SPAI supporting Matrix.hpp and OpenMP
+// SParse Approximate Inverse algorithm - SPAI supporting Eigen::SparseMatrix
 // 
-// Every thread in OpenMP executes one to several columns of matrix M in parallel.
-// Matrix.hpp supports a parallel version of Matrix Vector multiplication
-// which also decreases the whole processing time.
-// 
+// This version has no parallel implementions and can be used as a benchmark.
+//
 // The SPAI algorithm computes a sparse approximate inverse M of a general 
 // sparse matrix A. It is inherently parallel, since the columns of M are 
 // calculated independently of one another.
@@ -55,7 +53,6 @@
 #include <cstddef>
 #include "Matrix/Matrix.hpp"
 #include "MatrixWithVecSupport.hpp"
-#include <omp.h>
 
 
 /*! 
@@ -70,10 +67,10 @@ void getBlockByTwoIndicesSet(const Matrix&A, Eigen::MatrixXd &AIJ,
     int n2 = J.size();
     for (int i=0; i<n1; i++) {
         for (int j=0; j<n2; j++) {
-            AIJ(i,j) = A(I[i], J[j]);
+            AIJ(i,j) = A.coeff(I[i], J[j]);
         }
     }
-    
+
 }
 
 /*!
@@ -84,11 +81,11 @@ void getBlockByTwoIndicesSet(const Matrix&A, Eigen::MatrixXd &AIJ,
  */
 void qrDecomposition(const Eigen::MatrixXd &A, Eigen::MatrixXd &Q, Eigen::MatrixXd &R) {
 
-    // When choosing a QR decomposition method, you can usually consider the following factors:
-    // Performance: The performance of different methods may vary depending on the nature of the matrix. ColPivHouseholderQR generally performs well in most situations.
-    // Memory usage: FullPivHouseholderQR provides full QR decomposition, but may require more memory.
-    // Numerical stability: HouseholderQR may be more stable in some situations where numerical values are worse.
-    // Function: Consider your specific task needs and choose the appropriate QR decomposition method.
+    // 在选择QR分解方法时，通常可以考虑以下因素：
+    // 性能： 不同方法的性能可能因矩阵的性质而异。ColPivHouseholderQR通常在大多数情况下表现良好。
+    // 内存使用： FullPivHouseholderQR提供完整的QR分解，但可能需要更多内存。
+    // 数值稳定性： HouseholderQR可能在某些数值较糟糕的情况下更稳定。
+    // 功能： 考虑你的具体任务需求，选择适当的QR分解方法。
     Eigen::HouseholderQR<Eigen::MatrixXd> qr(A);
     Q = qr.householderQ();
     R = qr.matrixQR().topLeftCorner(A.cols(), A.cols());
@@ -113,8 +110,11 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
     for (int i=0; i<n1; i++) {
         e_k_triangular[i] = e_k[I[i]];
     }
+    std::cout << "e_k_triangular :\n" << e_k_triangular << std::endl;
     Eigen::VectorXd c_triangular = Q.transpose() * e_k_triangular;
+    std::cout << "c_triangular :\n" << c_triangular << std::endl;
     Eigen::VectorXd m_k_triangular = R.inverse() * c_triangular.segment(0,n2-1);
+    std::cout << "m_k_triangular :\n" << m_k_triangular << std::endl;
     // m_k
     int index = 0;
     for (int i=0; i<Size; i++) {
@@ -125,25 +125,27 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
             m_k[i] = 0;
         }
     }
+    std::cout << "m_k = \n" << m_k << std::endl;
     // AJ be the A(.,J)
     Eigen::MatrixXd AJ(Size, n2);
     for (int i=0; i<Size; i++) {
         for (int j=0; j<n2; j++) {
-            AJ(i,j) = A(i, J[j]);
+            AJ(i,j) = A.coeff(i, J[j]);
         }
     }
+    std::cout << "\nAJ matrix:\n" << AJ << std::endl;
     // r
     if (flag==0) { r = AJ * m_k_triangular - e_k;} 
     if (flag==1) {
         // A * m_k - e_k
-        std::vector<Scalar> m_k_vector(Size, 0.0);
+        Eigen::VectorXd m_k_vector(Size);
         for (int i=0; i<Size; i++) {
             m_k_vector[i] = m_k[i];
         }
-        std::vector<Scalar> intermediate = A * m_k_vector;
-        Eigen::Map<Eigen::VectorXd> intermediate_eigenVector(intermediate.data(), intermediate.size());
-        r = intermediate_eigenVector - e_k;
+        Eigen::VectorXd intermediate = A * m_k_vector;
+        r = intermediate - e_k;
     } 
+    std::cout << "r = " << r << std::endl;
 
 }
 
@@ -155,60 +157,64 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
  */
 namespace LinearAlgebra {
 template <class Matrix, typename Scalar>
-int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
+int SPAI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
 
         ASSERT((A.rows() == A.cols()), "The matrix must be squared!\n");
         const int Size = A.rows();
 
         // // strategy 1: the initial sparsity of M is chosen to be diagonal
         std::cout << "The initial sparsity of M which is chosen to be diagonal..." << std::endl;
-        M.resize(Size, Size);
         const Scalar diagonal_value = 1;
         const Scalar zero = 0;
         for (int i=0; i<Size; i++) {
             for (int j=0; j<Size; j++) {
-                if (i==j) { M(i, j) = diagonal_value; }
-                else { M(i,j) = zero; } 
+                if (i==j) { M.insert(i, j) = diagonal_value; }
+                else { M.insert(i,j) = zero; } 
             }
         }
-        // // std::cout << "matrix M:\n" << M << std::endl;
+        M.makeCompressed();
+        std::cout << "matrix M:\n" << M << std::endl;
 
         // // strategy 2: M is chosen to be not diagonal
         // std::cout << "The initial sparsity of M which is chosen to be lkie..." << std::endl;
-        // M.resize(Size, Size);
         // const Scalar diagonal_value = 1;
         // const Scalar zero = 0;
         // for (int i=0; i<Size; i++) {
         //     for (int j=0; j<Size; j++) {
-        //         if (i==j) { M(i, j) = diagonal_value; }
-        //         else if (i==j+1) { M(i, j) = diagonal_value; }
-        //         else { M(i,j) = zero; } 
+        //         if (i==j) { M.insert(i, j) = diagonal_value; }
+        //         else if (i==j+1) { M.insert(i, j) = diagonal_value; }
+        //         else { M.insert(i,j) = zero; } 
         //     }
         // }
+        // M.makeCompressed();
         // // std::cout << "matrix M:\n" << M << std::endl;
 
-        
-        #pragma omp parallel for
+
         // for every column of M
         for (int k=0; k<Size; k++) {
-            // (a)
+            std::cout << "----------------------------------" << std::endl;
+            std::cout << "k =  " << k << std::endl;
+            std::cout << k << "-th column of M......" << std::endl;
+            std::cout << "(a) part is processing......" << std::endl;
             // J be the set of indices j such that m_k(j) != 0
             std::vector<int> J;
             for (int j=0; j<Size; j++) {
-                if (M(j,k)!=zero) { 
+                if (M.coeff(j,k)!=zero) { 
                     J.push_back(j); 
+                    std::cout << "the " << k << "-th column of M, adds new elements to J : " << j << std::endl;
                     }
             }
-            // (b)
+            std::cout << "(b) part is processing......" << std::endl;
             // I be the set of indices i such that A(i, J) is not identically zero.
             std::vector<int> I;
             for (int i=0; i<Size; i++) {
                 int flag = 0;
                 for (const auto &j : J) { 
-                    if (A(i,j)!=zero) {flag = 1;}
+                    if (A.coeff(i,j)!=zero) {flag = 1;}
                 }
                 if (flag==1) { 
                     I.push_back(i);
+                    std::cout << "the " << k << "-th column of M, adds new elements to I : " << i << std::endl;
                 }
             }
             // AIJ be the A(I,J)
@@ -217,15 +223,20 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
             ASSERT((n1 >= n2), "\nn1 must be bigger than or equal to n2!\n");
             Eigen::MatrixXd AIJ(n1, n2);
             getBlockByTwoIndicesSet(A, AIJ, I, J);
+            std::cout << "\nAIJ matrix:\n" << AIJ << std::endl;
 
             // QR decomposition of AIJ
             Eigen::MatrixXd Q;
             Eigen::MatrixXd R;
             qrDecomposition(AIJ, Q, R);
+            std::cout << "Q matrix:\n" << Q << std::endl;
+            std::cout << "R matrix:\n" << R << "\n\n";
 
             // e_k
             Eigen::VectorXd e_k = Eigen::VectorXd::Zero(Size);
             e_k[k] = 1.0;
+            std::cout << "e_k :\n" << e_k << std::endl;
+
 
             // m_k
             Eigen::VectorXd m_k = Eigen::VectorXd::Zero(Size);
@@ -233,17 +244,21 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
             Eigen::VectorXd r = Eigen::VectorXd::Zero(Size);
             computeRAndMk<decltype(A), decltype(epsilon)>(A, Size, Q, R, r, m_k, e_k, I, J, 0);
 
+            std::cout << "begin the loop iteration......" << std::endl;
             // while loop iteration 
             int iter = 0;
             while (r.norm()>epsilon && iter < max_iter) {
+                std::cout << "............................" << std::endl;
                 iter++;
 
                 // (c) 
+                std::cout << "(c) part is processing......" << std::endl;
                 std::vector<int> L;
                 // Strategy 1: Set L equal to the set of indices l for which r(l) != 0
                 for (int i=0; i<Size; i++) {
                     if (r[i]!=0) { 
                         L.push_back(i); 
+                        std::cout << "the " << k << "-th column of M, adds new elements to L : " << i << std::endl;
                     }
                 }
                 // // Strategy 2: according to suggestion of remarks.5, choose the largest elements in r
@@ -254,33 +269,45 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                 //     }
                 // }
                 // L.push_back(max_index);
+                // std::cout << "the " << k << "-th column of M, adds new elements to L : " << max_index << std::endl;
 
                 // (d) J_triangular
+                std::cout << "(d) part is processing......" << std::endl;
                 std::vector<int> J_triangular;
                 int index = 0;
                 for (int j=0; j<Size; j++) {
                     if (index<n2 && J[index] == j) {
+                        std::cout << "index = " << index << std::endl;
                         index++;
                     } else {
                         int flag = 0;
                         for (const auto &i : L) {
-                            if (A(i,j)!=zero) {
+                            // std::cout << " i=" << i << " j=" << j << " A(i,j)=" << A.coeff(i,j) << std::endl; 
+                            if (A.coeff(i,j)!=zero) {
                                 flag = 1;
+                                // std::cout << "flag=1 " << std::endl;
                             }
                         }
                         if (flag==1) { 
                             J_triangular.push_back(j);
+                            // std::cout << "the " << k << "-th column of M, adds new elements to J_triangular : " << j << std::endl;
                         } 
                     }
                 }
 
+                // print to check
+                for (const auto &j : J_triangular) { 
+                    std::cout << "the " << k << "-th column of M, adds new elements to J_triangular : " << j << std::endl;
+                }
+
+                // std::cout << "(e) part is processing......" << std::endl;
                 // // (e) For each j ∈ J_triangular solve the minimization problem (10).
                 // std::vector<Scalar> rou;
                 // for (const auto &j : J_triangular) {
-                //     std::vector<Scalar> e_j(Size, 0.0);
+                //     Eigen::VectorXd e_j = Eigen::VectorXd::Zero(Size);
                 //     e_j[j] = 1.0;
-                //     std::vector<Scalar> aej = A * e_j;
-                //     Eigen::Map<Eigen::VectorXd> aej_ev(aej.data(), aej.size());
+                //     Eigen::VectorXd aej = A * e_j;
+                //     Eigen::VectorXd aej_ev = aej;
                 //     Scalar m1 = r.dot(aej_ev);
                 //     Scalar m2 = std::pow(aej_ev.norm(),2);
                 //     Scalar miu_j = m1 / m2;
@@ -314,6 +341,7 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                 //     for (int j=0; j<J_triangular_first.size(); j++) {
                 //         if (rou[j] <= fifth_smallest_rou) { 
                 //             J_triangular_second.push_back(J_triangular_first[j]); 
+                //             std::cout << "the " << k << "-th column of M, adds new elements to J_triangular_second : " << J_triangular_first[j] << std::endl;
                 //             rou_second.push_back(rou_first[j]);
                 //         }
                 //     }
@@ -322,7 +350,12 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                 //     J_triangular.swap(J_triangular_first);
                 // }
                 
+                // print to check
+                for (const auto &j : J_triangular) { 
+                    std::cout << "the " << k << "-th column of M, adds new elements to J_triangular : " << j << std::endl;
+                }
 
+                std::cout << "(g) part is processing......" << std::endl;
                 // (g) Determine the new indices I_triangular
                 std::vector<int> J_merged(J.size() + J_triangular.size());
                 std::merge(J.begin(), J.end(), J_triangular.begin(), J_triangular.end(), J_merged.begin());
@@ -336,17 +369,18 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                     } else {
                         int flag = 0;
                         for (const auto &j : J_merged) { 
-                            if (A(i,j)!=zero) {flag = 1;}
+                            if (A.coeff(i,j)!=zero) {flag = 1;}
                         }
                         if (flag==1) { 
                             I_triangular.push_back(i);
+                            std::cout << "the " << k << "-th column of M, adds new elements to I_triangular : " << i << std::endl;
                         } 
                     }
                 }
                 std::vector<int> I_merged(I.size() + I_triangular.size());
                 std::merge(I.begin(), I.end(), I_triangular.begin(), I_triangular.end(), I_merged.begin());
                 std::sort(I_merged.begin(), I_merged.end());
-                
+
                 int n1_triangular = I_triangular.size();
                 int n2_triangular = J_triangular.size();
 
@@ -374,7 +408,14 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                     if (i < n1) { Pr(I_copy[i], i) = 1.0; }
                     else { Pr(I_triangular_copy[i-n1], i) = 1.0; }
                 }
-            
+                std::cout << "I = ";
+                for (const auto &i : I) { std::cout << i << ", ";}
+                std::cout << "\n";
+                std::cout << "I_triangular = ";
+                for (const auto &j : I_triangular) { std::cout << j << ", ";}
+                std::cout << "\n";
+                std::cout << "Pr = \n" << Pr << std::endl;
+                
                 Eigen::MatrixXd Pc = Eigen::MatrixXd::Zero(n2+n2_triangular, n2+n2_triangular);
                 std::vector<int> J_other;
                 ind = 0;
@@ -397,6 +438,14 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                     if (i < n2) { Pc(i, J_copy[i]) = 1.0; }
                     else { Pc(i, J_triangular_copy[i-n2]) = 1.0; }
                 }
+                std::cout << "J = ";
+                for (const auto &i : J) { std::cout << i << ", ";}
+                std::cout << "\n";
+                std::cout << "J_triangular = ";
+                for (const auto &j : J_triangular) { std::cout << j << ", ";}
+                std::cout << "\n";
+                std::cout << "Pc = \n" << Pc << std::endl;
+
                 
                 // if (n2_triangular!=0) {
                     // A_I_J_triangular
@@ -410,13 +459,20 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                     Eigen::MatrixXd B1 = Q.transpose().topLeftCorner(n2,n1) * A_I_J_triangular;
                     Eigen::MatrixXd B2(n1_triangular+n1-n2, n2_triangular);
                     if (n1_triangular==0) {
+                        std::cout << "I_triangular is null" << std::endl;
                         B2 << Q.transpose().bottomLeftCorner(n1-n2, n1) * A_I_J_triangular;
                     } else {
                         B2 << Q.transpose().bottomLeftCorner(n1-n2, n1) * A_I_J_triangular, 
                         A_I_triangular_J_triangular;
                     }
                     
+                    std::cout << "B1 matrix:\n" << B1 << std::endl;
+                    std::cout << "B2 matrix:\n" << B2 << std::endl;
+                    
                     // QR decomposition of B2
+                    // Eigen::HouseholderQR<Eigen::MatrixXd> qr02(B2);
+                    // Eigen::MatrixXd Q_triangular = qr02.householderQ();
+                    // Eigen::MatrixXd R_triangular = qr02.matrixQR();
                     Eigen::MatrixXd Q_triangular;
                     Eigen::MatrixXd R_triangular;
                     qrDecomposition(B2, Q_triangular, R_triangular);
@@ -426,29 +482,53 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                             R_triangular(i, j) = 0.0;
                         }
                     }
+                    std::cout << "Q_triangular matrix:\n" << Q_triangular << std::endl;
+                    std::cout << "R_triangular matrix:\n" << R_triangular << std::endl;
 
                     // Q_new and R_new is the QR decomposition of A(I+I_triangular, J+J_triangular)
+                    //
                     Eigen::MatrixXd result01(n1+n1_triangular, n1+n1_triangular);
                     result01 << Q, Eigen::MatrixXd::Zero(n1, n1_triangular),
                                 Eigen::MatrixXd::Zero(n1_triangular, n1), Eigen::MatrixXd::Identity(n1_triangular, n1_triangular); 
+                    std::cout << "result01 matrix:\n" << result01 << std::endl;
+
                     Eigen::MatrixXd result02(n1+n1_triangular, n1+n1_triangular);
                     result02 << Eigen::MatrixXd::Identity(n2, n2), Eigen::MatrixXd::Zero(n2, n1_triangular+n1-n2),
                                 Eigen::MatrixXd::Zero(n1_triangular+n1-n2, n2), Q_triangular;
+                    std::cout << "result02 matrix:\n" << result02 << std::endl;            
+
                     Eigen::MatrixXd Q_new = result01 * result02;
                     // 
                     Eigen::MatrixXd R_new(n2+n2_triangular, n2+n2_triangular);
                     R_new << R, B1,
                             Eigen::MatrixXd::Zero(n2_triangular, n2), R_triangular;
+                            // ,Eigen::MatrixXd::Zero(n1+n1_triangular-n2-n2_triangular, n2+n2_triangular);
+                    
+                    std::cout << "R = \n" << R << "\n";
+                    std::cout << "B1 = \n" << B1 << "\n";
+                    std::cout << "R_triangular = \n" << R_triangular << "\n";
+
 
                     // 
                     Q.swap(Q_new);
                     R.swap(R_new);
+                    // print to check
+                    std::cout << "new Q = \n" << Q << std::endl;
+                    std::cout << "new R = \n" << R << "\n\n";
 
                     // update I and J
                     I.swap(I_merged);
                     J.swap(J_merged);
                     n1 = I.size();
                     n2 = J.size();
+
+                    // print to check
+                    std::cout << "new I = ";
+                    for (const auto &i : I) { std::cout << i << ", ";}
+                    std::cout << "\n";
+                    std::cout << "new J = ";
+                    for (const auto &j : J) { std::cout << j << ", ";}
+                    std::cout << "\n";
 
                 // } else {
                 //     std::cout << "J_triangular is null" << std::endl;
@@ -463,21 +543,23 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
 
                 // loop end
             }
+            std::cout << "complete the loop iteration......" << std::endl;
 
             // k-th
-            // if (max_iter == iter) {
-            //     std::cout << "the " << k << "-th column of M, complete the loop iteration, the result is " 
-            //     << "\nepsilon=" << epsilon << "    r.norm()=" << r.norm() 
-            //     << "\nmax_iter="<< max_iter << "    iter=" << iter << "\n\n";
-            // }
-        
+            if (max_iter == iter) {
+                std::cout << "the " << k << "-th column of M, complete the loop iteration, the result is "  
+                << "\nepsilon=" << epsilon << "    r.norm()=" << r.norm()  
+                << "\nmax_iter="<< max_iter << "    iter=" << iter << "\n\n";
+            }
+            
+            std::cout << "m_k :\n" << m_k << std::endl;
             // M
             for(int i=0; i<Size; i++) {
-                M(i,k) = m_k[i];
+                M.coeffRef(i,k) = m_k[i];
             }
-        }       
-
-        // std::cout << "\nmatrix M:\n" << M << "\n\n";
+        }
+    
+        std::cout << "\nmatrix M:\n" << M << "\n\n";
 
         return 1;
     }
