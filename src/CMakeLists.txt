@@ -7,6 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Find MPI package
 find_package(MPI REQUIRED)
+find_package(OpenMP REQUIRED)
 
 SET(EIGEN3_DIR_LOCAL $ENV{EIGEN3_INCLUDE_DIR})        #local installation
 SET(EIGEN3_DIR_PCAFRICA $ENV{mkEigenInc})             #pcafrica/mk module
@@ -32,12 +33,16 @@ include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 # add_executable(eigen_structure_map_test demo/eigen_structure_map_test.cpp)
 # add_executable(matrix_with_vec_support_ls_test demo/matrix_with_vec_support_ls_test.cpp)
 
-# add_executable(test_original objective5/test_original.cpp)
+add_executable(test_baseline objective5/test_baseline.cpp)
 # add_executable(test_spai objective5/test_spai.cpp)
 # add_executable(test_mpi objective5/test_mpi.cpp)
 # target_link_libraries(test_mpi MPI::MPI_CXX)
 # add_executable(test_openmp objective5/test_openmp.cpp)
+# target_link_libraries(test_openmp PUBLIC OpenMP::OpenMP_CXX)
+# target_compile_options(test_openmp PRIVATE -Wno-float-conversion)
 
-add_executable(test_mbase objective5/test_mbase.cpp)
+# add_executable(test_mbase objective5/test_mbase.cpp)
+# target_link_libraries(test_openmp PUBLIC OpenMP::OpenMP_CXX)
+# target_compile_options(test_openmp PRIVATE -Wno-float-conversion)
 # add_executable(test_tools objective5/test_tools.cpp)
 
