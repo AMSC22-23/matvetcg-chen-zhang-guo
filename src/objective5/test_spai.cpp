@@ -74,6 +74,7 @@ int main(int argc, char *argv[]) {
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     std::cout << "Time taken by SPAI: " << duration.count() << " microseconds" << std::endl;
+    std::cout << "\nmatrix M:\n" << M;
     // std::cout << "\nM * A:\n" << M*A;
     SpMat identityMatrix(size, size);
     identityMatrix.setIdentity();

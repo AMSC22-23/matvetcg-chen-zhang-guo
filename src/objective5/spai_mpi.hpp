@@ -158,65 +158,94 @@ template <class Matrix, typename Scalar>
 int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI_Comm mpi_comm) {
 
         // Get the number of processes
-        int world_size;
-        MPI_Comm_size(mpi_comm, &world_size);
+        int mpi_size;
+        MPI_Comm_size(mpi_comm, &mpi_size);
         // Get the rank of the process
-        int world_rank;
-        MPI_Comm_rank(mpi_comm, &world_rank);
-        if (world_rank==0) {
+        int mpi_rank;
+        MPI_Comm_rank(mpi_comm, &mpi_rank);
+        if (mpi_rank==0) {
             ASSERT((A.rows() == A.cols()), "The matrix must be squared!\n");
         }
-        MPI_Barrier(mpi_comm);
-        const int Size = A.rows();
-        
-        // // strategy 1: the initial sparsity of M is chosen to be diagonal
-        std::cout << "The initial sparsity of M which is chosen to be diagonal..." << std::endl;
         const Scalar diagonal_value = 1;
         const Scalar zero = 0;
-        for (int i=0; i<Size; i++) {
-            for (int j=0; j<Size; j++) {
-                if (i==j) { M.insert(i, j) = diagonal_value; }
-                else { M.insert(i,j) = zero; } 
+        const int Size = A.rows();
+        std::vector<double> MM;
+        
+        // // strategy 1: the initial sparsity of M is chosen to be diagonal
+        if (mpi_rank == 0) {
+            std::cout << "The initial sparsity of M which is chosen to be diagonal..." << std::endl;
+            MM.resize(Size*Size);
+            for (int i=0; i<Size; i++) {
+                for (int j=0; j<Size; j++) {
+                    if (i==j) { 
+                        MM[j*Size+i] = diagonal_value;
+                    }
+                    else { 
+                        MM[j*Size+i] = zero;
+                    } 
+                }
             }
         }
-        M.makeCompressed();
-        // std::cout << "matrix M:\n" << M << std::endl;
-
+        MPI_Barrier(mpi_comm);
+        
         // // strategy 2: M is chosen to be not diagonal
-        // std::cout << "The initial sparsity of M which is chosen to be lkie..." << std::endl;
-        // const Scalar diagonal_value = 1;
-        // const Scalar zero = 0;
-        // for (int i=0; i<Size; i++) {
-        //     for (int j=0; j<Size; j++) {
-        //         if (i==j) { M.insert(i, j) = diagonal_value; }
-        //         else if (i==j+1) { M.insert(i, j) = diagonal_value; }
-        //         else { M.insert(i,j) = zero; } 
+        // if (mpi_rank == 0) {
+        //     std::cout << "The initial sparsity of M which is chosen to be lkie..." << std::endl;
+        //     MM.resize(Size*Size);
+        //     for (int i=0; i<Size; i++) {
+        //         for (int j=0; j<Size; j++) {
+        //             if (i==j) { 
+        //                 MM[j*Size+i] = diagonal_value;
+        //             }
+        //             else if (i==j+1) { 
+        //                 MM[j*Size+i] = diagonal_value;
+        //             }
+        //             else { 
+        //                 MM[j*Size+i] = zero;
+        //             } 
+        //         }
         //     }
         // }
-        // M.makeCompressed();
-        // // std::cout << "matrix M:\n" << M << std::endl;
+        // MPI_Barrier(mpi_comm);
+        
 
         // number of cols to be processed in this thread
-        int NumPartitionedCols = Size / world_size;
-        int world_ncols = NumPartitionedCols;
-        if (world_rank == world_size-1) {world_ncols = Size-NumPartitionedCols*(world_size-1);}
-        std::cout << "Hello, this is thread " << world_rank << ", I am processing " << world_ncols << " cols of M whose size of cols is " << Size << std::endl;
-        
-        double *world_result = new double[Size*world_ncols];
-        double *manager_result;
-        if (world_rank==0) {
-            manager_result = new double[Size*Size];
+        std::vector<int> count_recv(mpi_size);
+        std::vector<int> displacements(mpi_size);
+        if (mpi_rank == 0) {
+            int chunk = Size / mpi_size;
+            int rest = Size % mpi_size;
+            for (auto i = 0; i < mpi_size; i++) {
+                count_recv[i] = i<rest? (chunk+1)*Size: chunk*Size;
+            }
+            displacements[0]=0;
+            for (auto i=1;i<mpi_size;++i)
+                displacements[i]=displacements[i-1]+count_recv[i-1];
         }
-
         // for every thread
-        int world_start = world_rank*NumPartitionedCols;
+        int local_chunk;
+        MPI_Scatter(count_recv.data(),1,MPI_INT, &local_chunk,1,MPI_INT,0,mpi_comm);
+        local_chunk = local_chunk / Size;
+        int location_of_start;
+        MPI_Scatter(displacements.data(),1,MPI_INT, &location_of_start,1,MPI_INT,0,mpi_comm);
+        location_of_start = location_of_start / Size;
+        // std::cout << "Hello, this is thread " << mpi_rank << ", I am processing " << local_chunk << " cols of M whose size of cols is " << Size << std::endl;
+        std::vector<double> local_m(local_chunk*Size);
+        MPI_Scatterv(MM.data(), count_recv.data(), displacements.data(), MPI_DOUBLE,
+                 local_m.data(), local_chunk*Size, MPI_DOUBLE, 0, mpi_comm);
+        std::cout << "Hello, this is thread " << mpi_rank 
+                  << ", I received partial data:\n";
+        for (auto i:local_m) {std::cout<<i<<" ";}          
+
+
         // for every column of M
-        for (int k = world_start; k < world_start+world_ncols; k++) {
+        for (int k = location_of_start; k < location_of_start+local_chunk; k++) {
             // (a)
             // J be the set of indices j such that m_k(j) != 0
             std::vector<int> J;
+            int kk = k - location_of_start;
             for (int j=0; j<Size; j++) {
-                if (M.coeff(j,k)!=zero) { 
+                if (local_m[kk*Size+j]!=zero) { 
                     J.push_back(j); 
                 }
             }
@@ -493,38 +522,24 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
             // }
 
             // copy m_k to world_result
-            int kk = k - world_start;
+            kk = k - location_of_start;
             for(int i=0; i<Size; i++) {
-                world_result[kk*Size+i] = m_k[i];
+                local_m[kk*Size+i] = m_k[i];
             }
         }
 
-        int *recvcounts = new int[world_size];
-        int *displs = new int[world_size];
-        for (int i=0; i<world_size; i++) {
-            recvcounts[i] = Size*NumPartitionedCols;
-            displs[i] = (i > 0) ? (displs[i - 1] + recvcounts[i - 1]) : 0;
-            if (i == world_size-1) {
-                recvcounts[i] = Size*(Size-NumPartitionedCols*(world_size-1));
-                displs[i] = displs[i - 1] + recvcounts[i - 1];
-            }
-        }
-        
-        std::cout << "thread " << world_rank << " completes for loop and gather is beginning" << std::endl;
+        std::cout << "thread " << mpi_rank << " completes for loop and gather is beginning" << std::endl;
         MPI_Barrier(mpi_comm);
-        MPI_Gatherv(world_result, Size*world_ncols, MPI_DOUBLE, manager_result, recvcounts, displs, MPI_DOUBLE, 0, mpi_comm);
-        MPI_Barrier(mpi_comm);
+        MPI_Gatherv(local_m.data(), local_chunk*Size, MPI_DOUBLE, MM.data(), count_recv.data(), displacements.data(), MPI_DOUBLE, 0, mpi_comm);
         
-        if (world_rank==0) {
+        if (mpi_rank == 0) {
             for (int i = 0; i < Size; i++) {
                 for (int j = 0; j < Size; j++) {
-                    if (i < world_ncols) { M.coeffRef(i,j) = world_result[i*Size+j]; }
-                    else { M.coeffRef(i,j) = manager_result[i*Size+j]; }
+                    M.insert(i, j) = MM[j*Size+i]; 
                 }
             }
+            M.makeCompressed();
         }
-        
-        // std::cout << "\nmatrix M:\n" << M << "\n\n";
 
         return 0;
     }

@@ -42,6 +42,7 @@ In case you want to run the project locally, you have to:
   `$EIGEN3_INCLUDE_DIR`.
 - Have `MPI` installed (Note: we had no issued using version `3.1` of `MPI`,
   newer versions might not compatible)
+- Have `OpenMP` installed (version `4.5` of `OpenMP`)
 
 Then:
 
