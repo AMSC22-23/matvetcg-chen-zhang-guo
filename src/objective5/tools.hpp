@@ -13,6 +13,9 @@
 #include <iostream>
 #include <chrono>
 #include <type_traits>
+#include <cstring>
+#include <fstream>
+#include <sstream>
 
 #include <assert.hpp>
 #include "Matrix/Matrix.hpp"
@@ -112,6 +115,35 @@ namespace Tools {
         }
 
         return C;
+    }
+
+    /*！
+     * read matrix from .mtx file
+     */
+    template<typename Mat>
+    void read_mtx_matrix(Mat &A, std::string path) {
+        std::ifstream file(path);
+        std::string line;
+        std::getline(file, line);
+        std::getline(file, line); 
+
+        int rows, cols, nonZeros;
+        file >> rows >> cols >> nonZeros;
+        // std::cout<<"rows="<<rows<<"  cols="<<cols<<" nonZeros="<<nonZeros<<"\n";
+        A.resize(rows, cols);
+        for (unsigned i = 0; i < rows; i++) {
+            for (unsigned j = 0; i < cols; i++) {
+                A(i,j) = 0.0;
+            }
+        }
+
+        while (std::getline(file, line)) {
+            int i, j;
+            double value;
+            file >> i >> j >> value;
+            A(i-1, j-1) = value;
+        }
+        file.close();
     }
 
 } // namespace Tools
