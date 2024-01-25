@@ -17,7 +17,7 @@
 #include "MatrixWithVecSupport.hpp"
 #include "Vector.hpp"
 #include "cg.hpp"
-// #include "cg_mpi.hpp"
+#include "bicgstab.hpp"
 #include "tools.hpp"
 
 using std::cout;
@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
+    // iterative solvers
     // 1) with hand-made CG and identityMatrix
     MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR> AA(size, size);
     for (int i = 0; i < size; i++) {
@@ -107,14 +107,23 @@ int main(int argc, char *argv[]) {
             AA(i,j) = A(i,j);
         }
     }
-    Vector e(size, static_cast<double>(1));
-    Vector b = AA * e;
+    const Vector e(size, static_cast<double>(1));
+    const Vector b = AA * e;
     Vector x(size, static_cast<double>(0));
     double tol = 1.e-4;
-    int result, maxit = 1000;
-    result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(identityMatrix), decltype(tol)>(AA, x, b, identityMatrix, maxit, tol);        // Solve system
+    int maxit = 1000;
+    int result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(identityMatrix), decltype(tol)>(AA, x, b, identityMatrix, maxit, tol);        // Solve system
     std::cout << "hand-made CG with identityMatrix: "<< std::endl;
     std::cout << "CG flag = " << result << std::endl;
+    std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
+    std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
+
+    // 1) with hand-made BiCGSTAB and identityMatrix
+    x = x * 0.0;
+    maxit = 1000;
+    result = LinearAlgebra::BiCGSTAB<decltype(AA), decltype(x), decltype(identityMatrix), decltype(tol)>(AA, x, b, identityMatrix, maxit, tol);        // Solve system
+    std::cout << "hand-made BiCGSTAB with identityMatrix: "<< std::endl;
+    std::cout << "BiCGSTAB flag = " << result << std::endl;
     std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
     std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
 
@@ -126,11 +135,21 @@ int main(int argc, char *argv[]) {
         }
     }
     x = x * 0.0;
+    maxit = 1000;
     AA = Tools::multiply_two_matrix(MM, AA);
-    Vector bb = MM * b;
-    result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(MM), decltype(tol)>(AA, x, bb, identityMatrix, maxit, tol);        // Solve system
+    const Vector bb = MM * b;
+    result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(MM), decltype(tol)>(AA, x, bb, MM, maxit, tol);        // Solve system
     std::cout << "hand-made CG with SPAI: "<< std::endl;
     std::cout << "CG flag = " << result << std::endl;
+    std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
+    std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
+
+    // 2) with hand-made BiCGSTAB and M
+    x = x * 0.0;
+    maxit = 1000;
+    result = LinearAlgebra::BiCGSTAB<decltype(AA), decltype(x), decltype(MM), decltype(tol)>(AA, x, bb, MM, maxit, tol);        // Solve system
+    std::cout << "hand-made BiCGSTAB with SPAI: "<< std::endl;
+    std::cout << "BiCGSTAB flag = " << result << std::endl;
     std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
     std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
 
