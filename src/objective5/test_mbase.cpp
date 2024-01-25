@@ -27,12 +27,12 @@ using std::endl;
 int main(int argc, char *argv[]) {
     using namespace apsc::LinearAlgebra;
 
-    // Check if a filename is provided in the command line arguments
+    // Check if parameters are provided in the command line arguments
     if (argc != 4) {
         std::cout << "To run the program :\n";
         std::cerr << "Usage: " << argv[0] << " <filename> <max_iter> <epsilon>" << std::endl  // << "<n> is the the number of row/column of matrix A" << std::endl
                   << "<max_iter> is the maximal number of iterations to limit fill-in per column in M" << std::endl
-                  << "<epsilon> is the stopping criterion on ||r||2" << std::endl;
+                  << "<epsilon> is the stopping criterion on ||r||2 for every column of M" << std::endl;
         return 1; // Exit with an error code
     }
 
@@ -43,18 +43,18 @@ int main(int argc, char *argv[]) {
     std::ifstream inputFile(path);
     if (!inputFile.is_open()) {
         std::cerr << "Error opening file: " << path << std::endl 
-                  << "The mtx file should be placed in the **src/inputs** directory " << std::endl;
+                  << "The mtx file should be placed in the ** src/inputs ** directory " << std::endl;
         return 1; // Exit with an error code
     }
     inputFile.close();
 
 
-    std::cout << "Reading the matrix A..." << std::endl;
+    std::cout << "Reading matrix A..." << std::endl;
     MatrixWithVecSupport<double, std::vector<double>, ORDERING::ROWMAJOR> A;
     Tools::read_mtx_matrix<decltype(A)>(A, path);
     const unsigned size = A.rows();
     std::cout << "A has been loaded successfully" << std::endl;
-    std::cout << "matrix A:\n" << A;
+    // std::cout << "matrix A:\n" << A;
 
     // Check A properties
     std::cout << "Matrix size:"<< A.rows() << " X " << A.cols() << std::endl;
@@ -99,7 +99,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // iterative solvers
+    std::cout << "Using iterative solvers......" << std::endl;
+
+
     // 1) with hand-made CG and identityMatrix
     MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR> AA(size, size);
     for (int i = 0; i < size; i++) {
@@ -110,24 +112,26 @@ int main(int argc, char *argv[]) {
     const Vector e(size, static_cast<double>(1));
     const Vector b = AA * e;
     Vector x(size, static_cast<double>(0));
-    double tol = 1.e-4;
+    double tol = 1.e-8;
     int maxit = 1000;
     int result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(identityMatrix), decltype(tol)>(AA, x, b, identityMatrix, maxit, tol);        // Solve system
-    std::cout << "hand-made CG with identityMatrix: "<< std::endl;
+    std::cout << "--hand-made CG with identityMatrix: "<< std::endl;
     std::cout << "CG flag = " << result << std::endl;
     std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
     std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
 
-    // 1) with hand-made BiCGSTAB and identityMatrix
+
+    // 2) with hand-made BiCGSTAB and identityMatrix
     x = x * 0.0;
     maxit = 1000;
     result = LinearAlgebra::BiCGSTAB<decltype(AA), decltype(x), decltype(identityMatrix), decltype(tol)>(AA, x, b, identityMatrix, maxit, tol);        // Solve system
-    std::cout << "hand-made BiCGSTAB with identityMatrix: "<< std::endl;
+    std::cout << "--hand-made BiCGSTAB with identityMatrix: "<< std::endl;
     std::cout << "BiCGSTAB flag = " << result << std::endl;
     std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
     std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
 
-    // 2) with hand-made CG and M
+
+    // 3) with hand-made CG and M
     MatrixWithVecSupport<double, Vector<double>, ORDERING::ROWMAJOR> MM(size, size);
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; j++) {
@@ -139,16 +143,17 @@ int main(int argc, char *argv[]) {
     AA = Tools::multiply_two_matrix(MM, AA);
     const Vector bb = MM * b;
     result = LinearAlgebra::CG<decltype(AA), decltype(x), decltype(MM), decltype(tol)>(AA, x, bb, MM, maxit, tol);        // Solve system
-    std::cout << "hand-made CG with SPAI: "<< std::endl;
+    std::cout << "--hand-made CG with SPAI: "<< std::endl;
     std::cout << "CG flag = " << result << std::endl;
     std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
     std::cout << "effective error =  "<<(x-e).norm()<< std::endl;
 
-    // 2) with hand-made BiCGSTAB and M
+
+    // 4) with hand-made BiCGSTAB and M
     x = x * 0.0;
     maxit = 1000;
     result = LinearAlgebra::BiCGSTAB<decltype(AA), decltype(x), decltype(MM), decltype(tol)>(AA, x, bb, MM, maxit, tol);        // Solve system
-    std::cout << "hand-made BiCGSTAB with SPAI: "<< std::endl;
+    std::cout << "--hand-made BiCGSTAB with SPAI: "<< std::endl;
     std::cout << "BiCGSTAB flag = " << result << std::endl;
     std::cout << "maxit = 1000, iterations performed = " << maxit << std::endl;
     std::cout << "effective error =  "<<(x-e).norm()<< std::endl;

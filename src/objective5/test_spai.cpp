@@ -11,7 +11,7 @@
 #include <cstddef>
 #include <iostream>
 #include <chrono>
-#include "spai.hpp"
+#include "spai_debug.hpp"
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -27,15 +27,15 @@ using std::endl;
 int main(int argc, char *argv[]) {
     using namespace apsc::LinearAlgebra;
 
-    // Check if a filename is provided in the command line arguments
+    // Check if parameters are provided in the command line arguments
     if (argc != 4) {
+        std::cout << "To run the program :\n";
         std::cerr << "Usage: " << argv[0] << " <filename> <max_iter> <epsilon>" << std::endl
                   << "<max_iter> is the maximal number of iterations to limit fill-in per column in M" << std::endl
-                  << "<epsilon> is the stopping criterion on ||r||2" << std::endl;
+                  << "<epsilon> is the stopping criterion on ||r||2 for every column of M" << std::endl;
         return 1; // Exit with an error code
     }
     
-    std::cout << "Current path is " << std::filesystem::current_path() << '\n';
     std::string path = std::filesystem::current_path().string() + "/inputs/";
     path = path + argv[1];
 
@@ -43,18 +43,18 @@ int main(int argc, char *argv[]) {
     std::ifstream inputFile(path);
     if (!inputFile.is_open()) {
         std::cerr << "Error opening file: " << path << std::endl 
-                  << "The mtx file should be placed in the **src/inputs** directory " << std::endl;
+                  << "The mtx file should be placed in the ** src/inputs ** directory " << std::endl;
         return 1; // Exit with an error code
     }
     inputFile.close();
     
 
-    std::cout << "Reading the spd matrix A..." << std::endl;
+    std::cout << "Reading matrix A..." << std::endl;
     SpMat A;
     Eigen::loadMarket(A, path);
     const unsigned size = A.rows();
     std::cout << "A has been loaded successfully" << std::endl;
-    std::cout << "\nmatrix A:\n" << A;
+    // std::cout << "\nmatrix A:\n" << A;
 
     // Check A properties
     std::cout << "Matrix size:"<< A.rows() << " X " << A.cols() << std::endl;
@@ -74,11 +74,13 @@ int main(int argc, char *argv[]) {
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     std::cout << "Time taken by SPAI: " << duration.count() << " microseconds" << std::endl;
-    std::cout << "\nmatrix M:\n" << M;
+    // std::cout << "\nmatrix M:\n" << M;
     // std::cout << "\nM * A:\n" << M*A;
     SpMat identityMatrix(size, size);
     identityMatrix.setIdentity();
     std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix ).norm() << std::endl;
+
+    std::cout << "Using iterative solvers......" << std::endl;
 
 
     // 1) with Eigen CG
@@ -87,7 +89,7 @@ int main(int argc, char *argv[]) {
     SpVec x = SpVec::Zero(size);
     A = M * A;
     b = M * b;
-    const double tol = 1.e-2;
+    const double tol = 1.e-8;
     const int maxit = 1000;
     int result;
     
@@ -96,7 +98,7 @@ int main(int argc, char *argv[]) {
     cg.setTolerance(tol);
     x = cg.compute(A).solve(b);
 
-    std::cout << "Eigen native CG" << std::endl;
+    std::cout << "--Eigen native CG" << std::endl;
     std::cout << "#iterations:       " << cg.iterations() << std::endl;
     std::cout << "relative residual: " << cg.error()      << std::endl;
     std::cout << "effective error:   " << (x-e).norm()    << std::endl;
@@ -110,7 +112,7 @@ int main(int argc, char *argv[]) {
     bicgstab.setTolerance(tol);
     x = bicgstab.compute(A).solve(b);
 
-    std::cout << "Eigen native BiCGSTAB" << std::endl;
+    std::cout << "--Eigen native BiCGSTAB" << std::endl;
     std::cout << "#iterations:       " << bicgstab.iterations() << std::endl;
     std::cout << "relative residual: " << bicgstab.error()      << std::endl;
     std::cout << "effective error:   " << (x-e).norm()    << std::endl;

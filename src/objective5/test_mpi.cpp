@@ -49,13 +49,13 @@ int main(int argc, char *argv[]) {
     std::string path;
     SpMat A;
     if (world_rank == 0) {
-        // Check if a filename is provided in the command line arguments
+        // Check if parameters are provided in the command line arguments
         if (argc != 4) {
             std::cout << "To run the program :\n";
             std::cerr 
                 << "Usage: " << argv[0] << " <filename> <max_iter> <epsilon>\n"
                 << "<max_iter> is the maximal number of iterations to limit fill-in per column in M\n"
-                << "<epsilon> is the stopping criterion on ||r||2\n";
+                << "<epsilon> is the stopping criterion on ||r||2 for every column of M" << std::endl;
             MPI_Finalize();          
             return 1; // Exit with an error code
         }
@@ -64,12 +64,12 @@ int main(int argc, char *argv[]) {
     path = std::filesystem::current_path().string() + "/inputs/" + argv[1];
 
     if (world_rank == 0) {    
-        std::cout << "Current path is " << std::filesystem::current_path() << "\n";
+        // std::cout << "Current path is " << std::filesystem::current_path() << "\n";
         // Check if the file is opened successfully
         std::ifstream inputFile(path);
         if (!inputFile.is_open()) {
             std::cerr << "Error opening file: " << path << "\n"
-                    << "The mtx file should be placed in the **src/inputs** directory " << std::endl;
+                    << "The mtx file should be placed in the ** src/inputs ** directory " << std::endl;
             MPI_Finalize();
             return 1; // Exit with an error code
         }
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
 
     // Check A properties
     if (world_rank == 0) {
-        std::cout << "\nmatrix A:\n" << A << "\n"; 
+        // std::cout << "\nmatrix A:\n" << A << "\n"; 
         std::cout << "Matrix size:"<< A.rows() << " X " << A.cols() << std::endl;
         std::cout << "Non zero entries:" << A.nonZeros() << std::endl;
         SpMat B = SpMat(A.transpose()) - A;  // Check symmetry
@@ -101,22 +101,20 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&epsilon, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
     tic();
-    // auto start_time = std::chrono::high_resolution_clock::now();
     LinearAlgebra::SPAI_MPI<decltype(A), decltype(epsilon)>(A, M, max_iter, epsilon, MPI_COMM_WORLD);
-    // auto end_time = std::chrono::high_resolution_clock::now();
-    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-    // std::cout << "Time taken by SPAI_MPI: " << duration.count() << " microseconds" << std::endl;
     if (world_rank == 0) {
         toc();
     }
 
-    
+    // iterative solvers
     if (world_rank == 0) {
-        std::cout << "\nmatrix M:\n" << M << "\n";
+        // std::cout << "\nmatrix M:\n" << M << "\n";
         // std::cout << "\nM * A:\n" << M*A;
         SpMat identityMatrix(size, size);
         identityMatrix.setIdentity();
         std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix ).norm() << std::endl;
+
+        std::cout << "Using iterative solvers......" << std::endl;
 
 
         // 1) with Eigen CG
@@ -125,7 +123,7 @@ int main(int argc, char *argv[]) {
         SpVec x = SpVec::Zero(size);
         A = M * A;
         b = M * b;
-        const double tol = 1.e-2;
+        const double tol = 1.e-8;
         const int maxit = 1000;
         int result;
         
@@ -134,7 +132,7 @@ int main(int argc, char *argv[]) {
         cg.setTolerance(tol);
         x = cg.compute(A).solve(b);
 
-        std::cout << "Eigen native CG" << std::endl;
+        std::cout << "--Eigen native CG" << std::endl;
         std::cout << "#iterations:       " << cg.iterations() << std::endl;
         std::cout << "relative residual: " << cg.error()      << std::endl;
         std::cout << "effective error:   " << (x-e).norm()    << std::endl;
@@ -148,7 +146,7 @@ int main(int argc, char *argv[]) {
         bicgstab.setTolerance(tol);
         x = bicgstab.compute(A).solve(b);
 
-        std::cout << "Eigen native BiCGSTAB" << std::endl;
+        std::cout << "--Eigen native BiCGSTAB" << std::endl;
         std::cout << "#iterations:       " << bicgstab.iterations() << std::endl;
         std::cout << "relative residual: " << bicgstab.error()      << std::endl;
         std::cout << "effective error:   " << (x-e).norm()    << std::endl;

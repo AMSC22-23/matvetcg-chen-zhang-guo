@@ -1,26 +1,29 @@
 # matvetcg-chen-zhang-guo
+- The files mentioned below are placed in the folder /src/objective5 by default on branch M5 for this project.
 
-## main result of yingzhang
+- *.mtx files should be placed in the /src/inputs folder.
+
+## main results of yingzhang
 Implement `SPAI` algorithm which is 
 a parallel preconditioner based on approximate inverse  according to paper `ApproximateInversePreconditioner.pdf`.
 
-## versions of `SPAI`
+For details of specific yingzhang's work, please refer to the following two sections.
+
+## Implemented four versions of `SPAI`
 1. normal version without parallel - `spai.hpp` `test_spai.cpp`
 2. openmp version parallelized by OpenMP based on normal version - `spai_openmp.hpp` `test_openmp.cpp` 
 3. mpi version parallelized by MPI based on normal version - `spai_mpi.hpp` `test_mpi.cpp`
-4. use `MatrixWithVecSupport` class as the base matrix (comes from Mattteochen's work: [link](https://github.com/AMSC22-23/matvetcg-chen-zhang-guo/blob/m5/src/shared/MatrixWithVecSupport.hpp) ) instead of sparse matrix of the Eigen library in the above work based on normal version - `spai_mbase.hpp` `test_mbase.cpp`
+4. use `MatrixWithVecSupport` class as the base matrix (comes from my teammate Mattteochen's work: [link](https://github.com/AMSC22-23/matvetcg-chen-zhang-guo/blob/m5/src/shared/MatrixWithVecSupport.hpp) ) instead of sparse matrix of the Eigen library in the above work based on normal version - `spai_mbase.hpp` `test_mbase.cpp`
+5. To compare the above four versions, I also created `test_baseline.cpp` which is executed without preconditioner and can be used as a baseline.
 
-## others
-To verify the results, I also create `spai_debug.hpp` which is only used for printing info of variables on the basis of `spai.hpp` to check whether each part meets expectation or not.
+## Additional work
+`spai_debug.hpp` - is only used for printing info of variables on the basis of `spai.hpp` to check whether each part meets expectation or not and the correctness of this algorithm.
 
-`test_baseline.cpp` is executed without preconditioner which is used as a baseline compared with different versions of `SPAI`.
+`tools.hpp` - is used to complement the missing parallel version of addition, subtraction, and multiplication between two matrices in the `MatrixWithVecSupport` class. 
 
-`tools.hpp` is used to complement the missing parallel version of addition, subtraction, and multiplication between the two matrices in the `MatrixWithVecSupport` class. 
+`src/algorithms/bicgstab.hpp` - I changed part of [BiCGSTAB](https://github.com/mattteochen/AMSC-CodeExamples/blob/c8f2e13b22d3dee4884b49ec497c49d5206044f0/Examples/src/LinearAlgebra/IML_Eigen/include/bicgstab.hpp) to make it compatible with our project. (The same changes to `src/algorithms/cg.hpp` came from my teammate Mattteochen.) These two iterative solvers are used to solve linear equation in `test_mbase.cpp` as substitutes of their counterpart in Eigen library.
 
-*.mtx files should be placed in the /src/inputs folder.
-
-
-## Iterative schemes
+## Iterative solvers
 - [x] Conjugate Gradient
 - [x] BiCGSTAB
 
