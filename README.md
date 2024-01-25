@@ -81,11 +81,11 @@ mpirun -n 4 ./build/test_mpi test.mtx 10 0.6
 
 4. openmp version with `MatrixWithVecSupport` class
 ```
-./build/test_mbase <n> <max_iter> <epsilon>
+./build/test_mbase <filename> <max_iter> <epsilon>
 ```
 For example
 ```
-./build/test_mbase 6 10 0.6
+./build/test_mbase test.mtx 10 0.6
 ```
 
 5. baseline test
