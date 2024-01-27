@@ -55,6 +55,7 @@
 #include "MatrixWithVecSupport.hpp"
 #include <omp.h>
 
+#include <memory>
 
 /*! 
  * Extract a block from matrix `A` specified by the indices set provided in 
@@ -87,9 +88,9 @@ void qrDecomposition(const Eigen::MatrixXd &A, Eigen::MatrixXd &Q, Eigen::Matrix
     // Memory usage: FullPivHouseholderQR provides full QR decomposition, but may require more memory.
     // Numerical stability: HouseholderQR may be more stable in some situations where numerical values are worse.
     // Function: Consider your specific task needs and choose the appropriate QR decomposition method.
-    Eigen::HouseholderQR<Eigen::MatrixXd> qr(A);
-    Q = qr.householderQ();
-    R = qr.matrixQR().topLeftCorner(A.cols(), A.cols());
+    std::unique_ptr<Eigen::HouseholderQR<Eigen::MatrixXd> > qr_p = std::make_unique<Eigen::HouseholderQR<Eigen::MatrixXd> >(A);
+    Q = qr_p->householderQ();
+    R = qr_p->matrixQR().topLeftCorner(A.cols(), A.cols());
 
 }
 
@@ -107,39 +108,42 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
     int n1 = I.size();
     int n2 = J.size();
     // e_k_triangular = e_k(I)
-    Eigen::VectorXd e_k_triangular(n1);
+    std::unique_ptr<Eigen::VectorXd> e_k_triangular_ptr = std::make_unique<Eigen::VectorXd>(n1);
     for (int i=0; i<n1; i++) {
-        e_k_triangular[i] = e_k[I[i]];
+       (*e_k_triangular_ptr)(i) = e_k[I[i]];
     }
-    Eigen::VectorXd c_triangular = Q.transpose() * e_k_triangular;
-    Eigen::VectorXd m_k_triangular = R.inverse() * c_triangular.segment(0,n2-1);
+    std::unique_ptr<Eigen::VectorXd> c_triangular_ptr = std::make_unique<Eigen::VectorXd>(n1);
+    *c_triangular_ptr = Q.transpose() * (*e_k_triangular_ptr);
+    std::unique_ptr<Eigen::VectorXd> m_k_triangular_ptr = std::make_unique<Eigen::VectorXd>(n2);
+    *m_k_triangular_ptr = R.inverse() * c_triangular_ptr->segment(0,n2-1);
     // m_k
     int index = 0;
     for (int i=0; i<Size; i++) {
         if (index<n2 && J[index]==i) {
-            m_k[i] = m_k_triangular[index];
+            m_k[i] = (*m_k_triangular_ptr)(index);
             index++;
         } else {
             m_k[i] = 0;
         }
     }
     // AJ be the A(.,J)
-    Eigen::MatrixXd AJ(Size, n2);
+    std::unique_ptr<Eigen::MatrixXd> AJ_ptr = std::make_unique<Eigen::MatrixXd>(Size, n2);
     for (int i=0; i<Size; i++) {
         for (int j=0; j<n2; j++) {
-            AJ(i,j) = A.coeff(i, J[j]);
+            (*AJ_ptr)(i,j) = A.coeff(i, J[j]);
         }
     }
     // r
-    if (flag==0) { r = AJ * m_k_triangular - e_k;} 
+    if (flag==0) { r = (*AJ_ptr) * (*m_k_triangular_ptr) - e_k;} 
     if (flag==1) {
         // A * m_k - e_k
-        Eigen::VectorXd m_k_vector(Size);
-        for (int i=0; i<Size; i++) {
-            m_k_vector[i] = m_k[i];
+        std::unique_ptr<Eigen::VectorXd> m_k_vector_ptr = std::make_unique<Eigen::VectorXd>(Size);
+        for (int i=0; i<Size; i++) { 
+            (*m_k_vector_ptr)(i) = m_k[i]; 
         }
-        Eigen::VectorXd intermediate = A * m_k_vector;
-        r = intermediate - e_k;
+        std::unique_ptr<Eigen::VectorXd> intermediate_ptr = std::make_unique<Eigen::VectorXd>(Size);
+        *intermediate_ptr = A * (*m_k_vector_ptr);
+        r = *intermediate_ptr - e_k;
     } 
 
 }
@@ -189,15 +193,15 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
 
         // for every column of M
         for (int k=0; k<Size; k++) {
-            // (a)
+            // (a) 
             // J be the set of indices j such that m_k(j) != 0
             std::vector<int> J;
             for (int j=0; j<Size; j++) {
                 if (M.coeff(j,k)!=zero) { 
                     J.push_back(j); 
-                    }
+                }
             }
-            // (b) 
+            // (b)
             // I be the set of indices i such that A(i, J) is not identically zero.
             std::vector<int> I;
             for (int i=0; i<Size; i++) {
@@ -213,41 +217,45 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
             int n1 = I.size();
             int n2 = J.size();
             ASSERT((n1 >= n2), "\nn1 must be bigger than or equal to n2!\n");
-            Eigen::MatrixXd AIJ(n1, n2);
-            getBlockByTwoIndicesSet(A, AIJ, I, J);
+            std::unique_ptr<Eigen::MatrixXd> AIJ_ptr = std::make_unique<Eigen::MatrixXd>(n1, n2);
+            getBlockByTwoIndicesSet(A, *AIJ_ptr, I, J);
 
             // QR decomposition of AIJ
-            Eigen::MatrixXd Q;
-            Eigen::MatrixXd R;
-            qrDecomposition(AIJ, Q, R);
+            std::unique_ptr<Eigen::MatrixXd> Q_ptr = std::make_unique<Eigen::MatrixXd>(AIJ_ptr->rows(), AIJ_ptr->rows());
+            std::unique_ptr<Eigen::MatrixXd> R_ptr = std::make_unique<Eigen::MatrixXd>(AIJ_ptr->cols(), AIJ_ptr->cols());
+            qrDecomposition(*AIJ_ptr, *Q_ptr, *R_ptr);
 
             // e_k
-            Eigen::VectorXd e_k = Eigen::VectorXd::Zero(Size);
-            e_k[k] = 1.0;
+            std::unique_ptr<Eigen::VectorXd> e_k_ptr = std::make_unique<Eigen::VectorXd>(Size);
+            e_k_ptr->setZero();
+            (*e_k_ptr)(k) = 1.0;
 
             // m_k
-            Eigen::VectorXd m_k = Eigen::VectorXd::Zero(Size);
+            std::unique_ptr<Eigen::VectorXd> m_k_ptr = std::make_unique<Eigen::VectorXd>(Size);
+            m_k_ptr->setZero();
             // r
-            Eigen::VectorXd r = Eigen::VectorXd::Zero(Size);
-            computeRAndMk<decltype(A), decltype(epsilon)>(A, Size, Q, R, r, m_k, e_k, I, J, 0);
+            std::unique_ptr<Eigen::VectorXd> r_ptr = std::make_unique<Eigen::VectorXd>(Size);
+            r_ptr->setZero();
+            computeRAndMk<decltype(A), decltype(epsilon)>(A, Size, *Q_ptr, *R_ptr, *r_ptr, *m_k_ptr, *e_k_ptr, I, J, 0);
+
 
             // while loop iteration 
             int iter = 0;
-            while (r.norm()>epsilon && iter < max_iter) {
+            while (r_ptr->norm() > epsilon && iter < max_iter) {
                 iter++;
 
                 // (c) 
                 std::vector<int> L;
                 // Strategy 1: Set L equal to the set of indices l for which r(l) != 0
                 for (int i=0; i<Size; i++) {
-                    if (r[i]!=0) { 
+                    if ((*r_ptr)(i)!=0) { 
                         L.push_back(i); 
                     }
                 }
                 // // Strategy 2: according to suggestion of remarks.5, choose the largest elements in r
                 // int max_index = 0;
                 // for (int i=0; i<Size; i++) {
-                //     if (std::abs(r[i]) > std::abs(r[max_index])) { 
+                //     if (std::abs((*r_ptr)(i)) > std::abs((*r_ptr)(max_index))) { 
                 //          max_index = i;
                 //     }
                 // }
@@ -344,139 +352,166 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
                 std::vector<int> I_merged(I.size() + I_triangular.size());
                 std::merge(I.begin(), I.end(), I_triangular.begin(), I_triangular.end(), I_merged.begin());
                 std::sort(I_merged.begin(), I_merged.end());
-                
+
                 int n1_triangular = I_triangular.size();
                 int n2_triangular = J_triangular.size();
 
-                
+
                 // for updating Q and R at the end of this loop
-                Eigen::MatrixXd Pr = Eigen::MatrixXd::Zero(n1+n1_triangular, n1+n1_triangular);
+                std::unique_ptr<Eigen::MatrixXd> Pr_ptr = std::make_unique<Eigen::MatrixXd>(n1+n1_triangular, n1+n1_triangular);
+                Pr_ptr->setZero();
                 std::vector<int> I_other;
                 int ind = 0;
                 for (int i = 0; i < Size; i++) {
-                    if (I_merged[ind] == i) {ind++;}
+                    if (ind < I_merged.size() && I_merged[ind] == i) {ind++;}
                     else {I_other.push_back(i);}
                 }
                 std::vector<int> I_copy(I);
                 std::vector<int> I_triangular_copy(I_triangular);
-                for (const auto &i : I_other) { 
-                    for (auto &i1 : I_copy) {
-                        if (i1 > i) {i1--;}
+                int flag;
+                do {
+                    flag = 0;
+                    for (const auto &i : I_other) { 
+                        for (auto &i1 : I_copy) {
+                            if (i1 > i) {i1--;}
+                            if (i1 < n1+n1_triangular) {flag+=0;} else {flag+=1;}
+                        }
+                        for (auto &i2 : I_triangular_copy) {
+                            if (i2 > i) {i2--;}
+                            if (i2 < n1+n1_triangular) {flag+=0;} else {flag+=1;}
+                        }
                     }
-                    for (auto &i2 : I_triangular_copy) {
-                        if (i2 > i) {i2--;}
-                    }
-                }
+                } while (flag>0);
                 for (int i = 0; i < n1+n1_triangular; i++)
                 {
-                    if (i < n1) { Pr(I_copy[i], i) = 1.0; }
-                    else { Pr(I_triangular_copy[i-n1], i) = 1.0; }
+                    if (i < n1) { (*Pr_ptr)(I_copy[i], i) = 1.0; }
+                    else { (*Pr_ptr)(I_triangular_copy[i-n1], i) = 1.0; }
                 }
             
-                Eigen::MatrixXd Pc = Eigen::MatrixXd::Zero(n2+n2_triangular, n2+n2_triangular);
+                std::unique_ptr<Eigen::MatrixXd> Pc_ptr = std::make_unique<Eigen::MatrixXd>(n2+n2_triangular, n2+n2_triangular);
+                Pc_ptr->setZero();
                 std::vector<int> J_other;
                 ind = 0;
                 for (int i = 0; i < Size; i++) {
-                    if (J_merged[ind] == i) {ind++;}
+                    if (ind<J_merged.size() && J_merged[ind] == i) {ind++;}
                     else {J_other.push_back(i);}
                 }
                 std::vector<int> J_copy(J);
                 std::vector<int> J_triangular_copy(J_triangular);
-                for (const auto &j : J_other) { 
-                    for (auto &j1 : J_copy) {
-                        if (j1 > j) {j1--;}
-                    }
-                    for (auto &j2 : J_triangular_copy) {
-                        if (j2 > j) {j2--;}
-                    }
-                }
-                for (int i = 0; i < n2+n2_triangular; i++)
-                {
-                    if (i < n2) { Pc(i, J_copy[i]) = 1.0; }
-                    else { Pc(i, J_triangular_copy[i-n2]) = 1.0; }
-                }
-                
-                // if (n2_triangular!=0) {
-                    // A_I_J_triangular
-                    Eigen::MatrixXd A_I_J_triangular(n1, n2_triangular);
-                    getBlockByTwoIndicesSet(A, A_I_J_triangular, I, J_triangular);
-                    // A_I_triangular_J_triangular
-                    Eigen::MatrixXd A_I_triangular_J_triangular(n1_triangular, n2_triangular);
-                    getBlockByTwoIndicesSet(A, A_I_triangular_J_triangular, I_triangular, J_triangular);
-
-                    // B1 and B2
-                    Eigen::MatrixXd B1 = Q.transpose().topLeftCorner(n2,n1) * A_I_J_triangular;
-                    Eigen::MatrixXd B2(n1_triangular+n1-n2, n2_triangular);
-                    if (n1_triangular==0) {
-                        B2 << Q.transpose().bottomLeftCorner(n1-n2, n1) * A_I_J_triangular;
-                    } else {
-                        B2 << Q.transpose().bottomLeftCorner(n1-n2, n1) * A_I_J_triangular, 
-                        A_I_triangular_J_triangular;
-                    }
-                    
-                    // QR decomposition of B2
-                    Eigen::MatrixXd Q_triangular;
-                    Eigen::MatrixXd R_triangular;
-                    qrDecomposition(B2, Q_triangular, R_triangular);
-                    // Set elements below the diagonal to 0
-                    for (int i = 0; i < R_triangular.rows(); ++i) {
-                        for (int j = 0; j < i; ++j) {
-                            R_triangular(i, j) = 0.0;
+                do {
+                    flag = 0;
+                    for (const auto &j : J_other) { 
+                        for (auto &j1 : J_copy) {
+                            if (j1 > j) {j1--;}
+                            if (j1 < n2+n2_triangular) {flag+=0;} else {flag+=1;}
+                        }
+                        for (auto &j2 : J_triangular_copy) {
+                            if (j2 > j) {j2--;}
+                            if (j2 < n2+n2_triangular) {flag+=0;} else {flag+=1;}
                         }
                     }
+                } while (flag>0);
+                for (int i = 0; i < n2+n2_triangular; i++)
+                {
+                    if (i < n2) { (*Pc_ptr)(i, J_copy[i]) = 1.0; }
+                    else { (*Pc_ptr)(i, J_triangular_copy[i-n2]) = 1.0; }
+                }
+                
+                //
+                // A_I_J_triangular
+                std::unique_ptr<Eigen::MatrixXd> A_I_J_triangular_ptr = std::make_unique<Eigen::MatrixXd>(n1, n2_triangular);
+                getBlockByTwoIndicesSet(A, *A_I_J_triangular_ptr, I, J_triangular);
+                // A_I_triangular_J_triangular
+                std::unique_ptr<Eigen::MatrixXd> A_I_triangular_J_triangular_ptr = std::make_unique<Eigen::MatrixXd>(n1_triangular, n2_triangular);
+                getBlockByTwoIndicesSet(A, *A_I_triangular_J_triangular_ptr, I_triangular, J_triangular);
 
-                    // Q_new and R_new is the QR decomposition of A(I+I_triangular, J+J_triangular)
-                    Eigen::MatrixXd result01(n1+n1_triangular, n1+n1_triangular);
-                    result01 << Q, Eigen::MatrixXd::Zero(n1, n1_triangular),
-                                Eigen::MatrixXd::Zero(n1_triangular, n1), Eigen::MatrixXd::Identity(n1_triangular, n1_triangular); 
-                    Eigen::MatrixXd result02(n1+n1_triangular, n1+n1_triangular);
-                    result02 << Eigen::MatrixXd::Identity(n2, n2), Eigen::MatrixXd::Zero(n2, n1_triangular+n1-n2),
-                                Eigen::MatrixXd::Zero(n1_triangular+n1-n2, n2), Q_triangular;
-                    Eigen::MatrixXd Q_new = result01 * result02;
-                    // 
-                    Eigen::MatrixXd R_new(n2+n2_triangular, n2+n2_triangular);
-                    R_new << R, B1,
-                            Eigen::MatrixXd::Zero(n2_triangular, n2), R_triangular;
+                // B1 and B2
+                std::unique_ptr<Eigen::MatrixXd> B1_ptr = std::make_unique<Eigen::MatrixXd>(n2, n2_triangular);
+                *B1_ptr = Q_ptr->transpose().topLeftCorner(n2,n1) * (*A_I_J_triangular_ptr);
+                std::unique_ptr<Eigen::MatrixXd> B2_ptr = std::make_unique<Eigen::MatrixXd>(n1_triangular+n1-n2, n2_triangular);
+                if (n1_triangular==0) {
+                    *B2_ptr << Q_ptr->transpose().bottomLeftCorner(n1-n2, n1) * (*A_I_J_triangular_ptr);
+                } else {
+                    *B2_ptr << Q_ptr->transpose().bottomLeftCorner(n1-n2, n1) * (*A_I_J_triangular_ptr), 
+                    *A_I_triangular_J_triangular_ptr;
+                }
+                
+                std::unique_ptr<Eigen::MatrixXd> Q_triangular_ptr = std::make_unique<Eigen::MatrixXd>(n1_triangular+n1-n2, n1_triangular+n1-n2);
+                std::unique_ptr<Eigen::MatrixXd> R_triangular_ptr = std::make_unique<Eigen::MatrixXd>(n2_triangular, n2_triangular);
+                qrDecomposition(*B2_ptr, *Q_triangular_ptr, *R_triangular_ptr);
+                // Set elements below the diagonal to 0
+                for (int i = 0; i < R_triangular_ptr->rows(); ++i) {
+                    for (int j = 0; j < i; ++j) {
+                        (*R_triangular_ptr)(i, j) = 0.0;
+                    }
+                }
+                
 
-                    // 
-                    Q.swap(Q_new);
-                    R.swap(R_new);
+                // to be used in the next part
+                std::unique_ptr<Eigen::MatrixXd> zeroMatrix1_ptr = std::make_unique<Eigen::MatrixXd>(Size, Size);
+                std::unique_ptr<Eigen::MatrixXd> zeroMatrix2_ptr = std::make_unique<Eigen::MatrixXd>(Size, Size);
+                std::unique_ptr<Eigen::MatrixXd> identityMatrix_ptr = std::make_unique<Eigen::MatrixXd>(Size, Size);
+                
+                // Q_new and R_new is the QR decomposition of A(I+I_triangular, J+J_triangular)
+                //
+                std::unique_ptr<Eigen::MatrixXd> result01_ptr = std::make_unique<Eigen::MatrixXd>(n1+n1_triangular, n1+n1_triangular);
+                zeroMatrix1_ptr->resize(n1, n1_triangular);
+                zeroMatrix1_ptr->setZero();
+                zeroMatrix2_ptr->resize(n1_triangular, n1);
+                zeroMatrix2_ptr->setZero();
+                identityMatrix_ptr->resize(n1_triangular, n1_triangular);
+                identityMatrix_ptr->setIdentity();
+                *result01_ptr << *Q_ptr, *zeroMatrix1_ptr,
+                            *zeroMatrix2_ptr, *identityMatrix_ptr; 
 
-                    // update I and J
-                    I.swap(I_merged);
-                    J.swap(J_merged);
-                    n1 = I.size();
-                    n2 = J.size();
+                std::unique_ptr<Eigen::MatrixXd> result02_ptr = std::make_unique<Eigen::MatrixXd>(n1+n1_triangular, n1+n1_triangular);
+                identityMatrix_ptr->resize(n2, n2);
+                identityMatrix_ptr->setIdentity();
+                zeroMatrix1_ptr->resize(n2, n1_triangular+n1-n2);
+                zeroMatrix1_ptr->setZero();
+                zeroMatrix2_ptr->resize(n1_triangular+n1-n2, n2);
+                zeroMatrix2_ptr->setZero();
+                *result02_ptr << *identityMatrix_ptr, *zeroMatrix1_ptr,
+                            *zeroMatrix2_ptr, *Q_triangular_ptr;
 
-                // } else {
-                //     std::cout << "J_triangular is null" << std::endl;
-                // }
+                // 
+                std::unique_ptr<Eigen::MatrixXd> Q_new_ptr = std::make_unique<Eigen::MatrixXd>(n1+n1_triangular, n1+n1_triangular);
+                *Q_new_ptr = (*result01_ptr) * (*result02_ptr);
+                // 
+                std::unique_ptr<Eigen::MatrixXd> R_new_ptr = std::make_unique<Eigen::MatrixXd>(n2+n2_triangular, n2+n2_triangular);
+                zeroMatrix1_ptr->resize(n2_triangular, n2);
+                zeroMatrix1_ptr->setZero();
+                *R_new_ptr << *R_ptr, *B1_ptr,
+                        *zeroMatrix1_ptr, *R_triangular_ptr;
+
+                // 
+                Q_ptr=std::move(Q_new_ptr);
+                R_ptr=std::move(R_new_ptr);
+            
+                // update I and J
+                I.swap(I_merged);
+                J.swap(J_merged);
+                n1 = I.size();
+                n2 = J.size();
 
                 // repeate the squares problem process and update variables
-                computeRAndMk<decltype(A), decltype(epsilon)>(A, Size, Q, R, r, m_k, e_k, I, J, 1);
+                computeRAndMk<decltype(A), decltype(epsilon)>(A, Size, *Q_ptr, *R_ptr, *r_ptr, *m_k_ptr, *e_k_ptr, I, J, 1);
 
                 // update Q and R to be used in the next iteration
-                Q = Pr * Q;
-                R = R * Pc;
-
-                // loop end
+                *Q_ptr = (*Pr_ptr) * (*Q_ptr);
+                *R_ptr = (*R_ptr) * (*Pc_ptr);
+                
+                // one loop end
             }
-
-            // k-th
-            // if (max_iter == iter) {
-            //     std::cout << "the " << k << "-th column of M, complete the loop iteration, the result is "  
-            //     << "\nepsilon=" << epsilon << "    r.norm()=" << r.norm()  
-            //     << "\nmax_iter="<< max_iter << "    iter=" << iter << "\n\n";
-            // }
 
             // M
             for(int i=0; i<Size; i++) {
-                M.coeffRef(i,k) = m_k[i];
+                auto value = (*m_k_ptr)(i);
+                if(std::isnan(value)) { M.coeffRef(i,k)=0; }
+                else{ M.coeffRef(i,k)=value; }
             }
-        }
-    
-        // std::cout << "\nmatrix M:\n" << M << "\n\n";
 
+        }
         return 0;
     }
 }

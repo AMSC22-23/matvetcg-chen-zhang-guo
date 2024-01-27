@@ -124,11 +124,14 @@ namespace Tools {
     void read_mtx_matrix(Mat &A, std::string path) {
         std::ifstream file(path);
         std::string line;
-        std::getline(file, line);
-        std::getline(file, line); 
+        while (std::getline(file, line)) {
+            if (!line.empty() && line[0] == '%') { continue; }
+            break;
+        } 
 
         int rows, cols, nonZeros;
-        file >> rows >> cols >> nonZeros;
+        std::istringstream iss(line);
+        iss >> rows >> cols >> nonZeros;
         // std::cout<<"rows="<<rows<<"  cols="<<cols<<" nonZeros="<<nonZeros<<"\n";
         A.resize(rows, cols);
         for (unsigned i = 0; i < rows; i++) {
@@ -137,9 +140,9 @@ namespace Tools {
             }
         }
 
+        int i, j;
+        double value;
         while (std::getline(file, line)) {
-            int i, j;
-            double value;
             file >> i >> j >> value;
             A(i-1, j-1) = value;
         }
