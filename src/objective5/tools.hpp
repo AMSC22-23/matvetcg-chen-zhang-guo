@@ -143,7 +143,8 @@ namespace Tools {
         int i, j;
         double value;
         while (std::getline(file, line)) {
-            file >> i >> j >> value;
+            std::istringstream isss(line);
+            isss >> i >> j >> value;
             A(i-1, j-1) = value;
         }
         file.close();

@@ -245,19 +245,19 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                 // (c) 
                 std::vector<int> L;
                 // Strategy 1: Set L equal to the set of indices l for which r(l) != 0
-                for (int i=0; i<Size; i++) {
-                    if ((*r_ptr)(i)!=0) { 
-                        L.push_back(i); 
-                    }
-                }
-                // // Strategy 2: according to suggestion of remarks.5, choose the largest elements in r
-                // int max_index = 0;
                 // for (int i=0; i<Size; i++) {
-                //     if (std::abs((*r_ptr)(i)) > std::abs((*r_ptr)(max_index))) { 
-                //          max_index = i;
+                //     if ((*r_ptr)(i)!=0) { 
+                //         L.push_back(i); 
                 //     }
                 // }
-                // L.push_back(max_index);
+                // // Strategy 2: according to suggestion of remarks.5, choose the largest elements in r
+                int max_index = 0;
+                for (int i=0; i<Size; i++) {
+                    if (std::abs((*r_ptr)(i)) > std::abs((*r_ptr)(max_index))) { 
+                         max_index = i;
+                    }
+                }
+                L.push_back(max_index);
 
                 // (d) J_triangular
                 std::vector<int> J_triangular;
@@ -278,24 +278,27 @@ int SPAI_MBASE(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) {
                     }
                 }
 
-                // // (e) For each j ∈ J_triangular solve the minimization problem (10).
+                // (e) For each j ∈ J_triangular solve the minimization problem (10).
                 // std::vector<Scalar> rou;
                 // for (const auto &j : J_triangular) {
-                //     Eigen::VectorXd e_j = Eigen::VectorXd::Zero(Size);
-                //     e_j[j] = 1.0;
-                //     Eigen::VectorXd aej = A * e_j;
-                //     Eigen::VectorXd aej_ev = aej;
-                //     Scalar m1 = r.dot(aej_ev);
-                //     Scalar m2 = std::pow(aej_ev.norm(),2);
+                //     std::unique_ptr<Eigen::VectorXd> e_j_ptr = std::make_unique<Eigen::VectorXd>(Size);
+                //     e_j_ptr->setZero();
+                //     (*e_j_ptr)(j) = 1.0;
+                //     std::unique_ptr<Eigen::VectorXd> aej_ptr = std::make_unique<Eigen::VectorXd>(Size);
+                //     *aej_ptr = A * (*e_j_ptr);
+                //     std::unique_ptr<Eigen::VectorXd> aej_ev_ptr = std::make_unique<Eigen::VectorXd>(Size);
+                //     *aej_ev_ptr = *aej_ptr;
+                //     Scalar m1 = r_ptr->dot(*aej_ev_ptr);
+                //     Scalar m2 = std::pow(aej_ev_ptr->norm(),2);
                 //     Scalar miu_j = m1 / m2;
-                //     Scalar rou_j = std::pow(r.norm(),2) + miu_j*(r.dot(aej_ev));
+                //     Scalar rou_j = std::pow(r_ptr->norm(),2) + miu_j*(r_ptr->dot(*aej_ev_ptr));
                 //     rou.push_back(rou_j);
                 // }
                 // // (f)
                 // // first: reserve indices j that rou_j is less than or equal to the mean value of all rou_j
                 // Scalar sum_of_rou = 0;
-                // for (const auto &r: rou) {
-                //     sum_of_rou += r;
+                // for (const auto &rr: rou) {
+                //     sum_of_rou += rr;
                 // }
                 // Scalar mean_of_rou = sum_of_rou / rou.size();
                 // std::vector<int> J_triangular_first;

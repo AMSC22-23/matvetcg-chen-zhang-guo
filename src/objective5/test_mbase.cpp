@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
     inputFile.close();
 
 
-    std::cout << "Reading matrix A..." << std::endl;
+    std::cout << "Reading matrix A......" << std::endl;
     MatrixWithVecSupport<double, std::vector<double>, ORDERING::ROWMAJOR> A;
     Tools::read_mtx_matrix<decltype(A)>(A, path);
     const unsigned size = A.rows();
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
     // std::cout << "Norm of skew-symmetric part: " << (AT-A).norm() << std::endl;
     
     // get M
-    std::cout << "Creating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)..." << std::endl;
+    std::cout << "\nCreating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)......" << std::endl;
     MatrixWithVecSupport<double, std::vector<double>, ORDERING::ROWMAJOR> M(size, size);
     int max_iter; 
     std::stringstream(argv[2]) >> max_iter;
@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::cout << "Using iterative solvers......" << std::endl;
+    std::cout << "\nUsing iterative solvers......" << std::endl;
 
 
     // 1) with hand-made CG and identityMatrix

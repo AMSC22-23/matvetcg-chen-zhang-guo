@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     inputFile.close();
 
     
-    std::cout << "Reading matrix A..." << std::endl;
+    std::cout << "Reading matrix A......" << std::endl;
     SpMat A;
     Eigen::loadMarket(A, path);
     const unsigned size = A.rows();
@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
     SpMat B = SpMat(A.transpose()) - A;  // Check symmetry
     std::cout << "Norm of skew-symmetric part: " << B.norm() << std::endl;
 
-    std::cout << "Using iterative solvers......" << std::endl;
+    std::cout << "\nUsing iterative solvers......" << std::endl;
 
 
     // 1) with Eigen CG

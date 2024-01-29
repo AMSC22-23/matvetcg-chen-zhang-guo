@@ -33,16 +33,25 @@ include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 # add_executable(eigen_structure_map_test demo/eigen_structure_map_test.cpp)
 # add_executable(matrix_with_vec_support_ls_test demo/matrix_with_vec_support_ls_test.cpp)
 
-# add_executable(test_baseline objective5/test_baseline.cpp)
+
+add_compile_options(
+    -O0
+    -g
+)
 add_executable(test_spai objective5/test_spai.cpp)
+
 add_executable(test_mpi objective5/test_mpi.cpp)
 target_link_libraries(test_mpi MPI::MPI_CXX)
-# add_executable(test_openmp objective5/test_openmp.cpp)
-# target_link_libraries(test_openmp PUBLIC OpenMP::OpenMP_CXX)
-# target_compile_options(test_openmp PRIVATE -Wno-float-conversion)
 
-# add_executable(test_mbase objective5/test_mbase.cpp)
-# target_link_libraries(test_openmp PUBLIC OpenMP::OpenMP_CXX)
-# target_compile_options(test_openmp PRIVATE -Wno-float-conversion)
-# add_executable(test_tools objective5/test_tools.cpp)
+add_executable(test_openmp objective5/test_openmp.cpp)
+target_link_libraries(test_openmp PUBLIC OpenMP::OpenMP_CXX)
+target_compile_options(test_openmp PRIVATE -Wno-float-conversion)
+
+add_executable(test_mbase objective5/test_mbase.cpp)
+target_link_libraries(test_mbase PUBLIC OpenMP::OpenMP_CXX)
+target_compile_options(test_mbase PRIVATE -Wno-float-conversion)
+
+add_executable(test_baseline objective5/test_baseline.cpp)
+
+add_executable(test_tools objective5/test_tools.cpp)
 

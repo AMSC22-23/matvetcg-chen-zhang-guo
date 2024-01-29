@@ -247,19 +247,19 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
                 // (c) 
                 std::vector<int> L;
                 // Strategy 1: Set L equal to the set of indices l for which r(l) != 0
-                for (int i=0; i<Size; i++) {
-                    if ((*r_ptr)(i)!=0) { 
-                        L.push_back(i); 
-                    }
-                }
-                // // Strategy 2: according to suggestion of remarks.5, choose the largest elements in r
-                // int max_index = 0;
                 // for (int i=0; i<Size; i++) {
-                //     if (std::abs((*r_ptr)(i)) > std::abs((*r_ptr)(max_index))) { 
-                //          max_index = i;
+                //     if ((*r_ptr)(i)!=0) { 
+                //         L.push_back(i); 
                 //     }
                 // }
-                // L.push_back(max_index);
+                // // Strategy 2: according to suggestion of remarks.5, choose the largest elements in r
+                int max_index = 0;
+                for (int i=0; i<Size; i++) {
+                    if (std::abs((*r_ptr)(i)) > std::abs((*r_ptr)(max_index))) { 
+                         max_index = i;
+                    }
+                }
+                L.push_back(max_index);
 
                 // (d) J_triangular
                 std::vector<int> J_triangular;
@@ -280,53 +280,56 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
                     }
                 }
 
-                // // (e) For each j ∈ J_triangular solve the minimization problem (10).
-                // std::vector<Scalar> rou;
-                // for (const auto &j : J_triangular) {
-                //     Eigen::VectorXd e_j = Eigen::VectorXd::Zero(Size);
-                //     e_j[j] = 1.0;
-                //     Eigen::VectorXd aej = A * e_j;
-                //     Eigen::VectorXd aej_ev = aej;
-                //     Scalar m1 = r.dot(aej_ev);
-                //     Scalar m2 = std::pow(aej_ev.norm(),2);
-                //     Scalar miu_j = m1 / m2;
-                //     Scalar rou_j = std::pow(r.norm(),2) + miu_j*(r.dot(aej_ev));
-                //     rou.push_back(rou_j);
-                // }
-                // // (f)
-                // // first: reserve indices j that rou_j is less than or equal to the mean value of all rou_j
-                // Scalar sum_of_rou = 0;
-                // for (const auto &r: rou) {
-                //     sum_of_rou += r;
-                // }
-                // Scalar mean_of_rou = sum_of_rou / rou.size();
-                // std::vector<int> J_triangular_first;
-                // std::vector<Scalar> rou_first;
-                // for (int j=0; j<J_triangular.size(); j++) {
-                //     if (rou[j] <= mean_of_rou) { 
-                //         J_triangular_first.push_back(J_triangular[j]); 
-                //         rou_first.push_back(rou[j]);
-                //     }
-                // }
-                // // second: From the remaining indices we keep at most s indices with smallest rou_j, and we set s equal to 5
-                // std::vector<int> J_triangular_second;
-                // std::vector<Scalar> rou_second;
-                // if (rou_first.size() > 5) {
-                //     // find the 5th smallest rou
-                //     std::vector<Scalar> copy_rou_first = rou_first;
-                //     std::partial_sort(copy_rou_first.begin(), copy_rou_first.begin() + 5, copy_rou_first.end());
-                //     Scalar fifth_smallest_rou = copy_rou_first[4];
-                //     // delete indices j that rou_j is bigger than or equal to the 5th smallest rou
-                //     for (int j=0; j<J_triangular_first.size(); j++) {
-                //         if (rou[j] <= fifth_smallest_rou) { 
-                //             J_triangular_second.push_back(J_triangular_first[j]); 
-                //             rou_second.push_back(rou_first[j]);
-                //         }
-                //     }
-                //     J_triangular.swap(J_triangular_second);
-                // } else {
-                //     J_triangular.swap(J_triangular_first);
-                // }
+                // (e) For each j ∈ J_triangular solve the minimization problem (10).
+                std::vector<Scalar> rou;
+                for (const auto &j : J_triangular) {
+                    std::unique_ptr<Eigen::VectorXd> e_j_ptr = std::make_unique<Eigen::VectorXd>(Size);
+                    e_j_ptr->setZero();
+                    (*e_j_ptr)(j) = 1.0;
+                    std::unique_ptr<Eigen::VectorXd> aej_ptr = std::make_unique<Eigen::VectorXd>(Size);
+                    *aej_ptr = A * (*e_j_ptr);
+                    std::unique_ptr<Eigen::VectorXd> aej_ev_ptr = std::make_unique<Eigen::VectorXd>(Size);
+                    *aej_ev_ptr = *aej_ptr;
+                    Scalar m1 = r_ptr->dot(*aej_ev_ptr);
+                    Scalar m2 = std::pow(aej_ev_ptr->norm(),2);
+                    Scalar miu_j = m1 / m2;
+                    Scalar rou_j = std::pow(r_ptr->norm(),2) + miu_j*(r_ptr->dot(*aej_ev_ptr));
+                    rou.push_back(rou_j);
+                }
+                // (f)
+                // first: reserve indices j that rou_j is less than or equal to the mean value of all rou_j
+                Scalar sum_of_rou = 0;
+                for (const auto &rr: rou) {
+                    sum_of_rou += rr;
+                }
+                Scalar mean_of_rou = sum_of_rou / rou.size();
+                std::vector<int> J_triangular_first;
+                std::vector<Scalar> rou_first;
+                for (int j=0; j<J_triangular.size(); j++) {
+                    if (rou[j] <= mean_of_rou) { 
+                        J_triangular_first.push_back(J_triangular[j]); 
+                        rou_first.push_back(rou[j]);
+                    }
+                }
+                // second: From the remaining indices we keep at most s indices with smallest rou_j, and we set s equal to 5
+                std::vector<int> J_triangular_second;
+                std::vector<Scalar> rou_second;
+                if (rou_first.size() > 5) {
+                    // find the 5th smallest rou
+                    std::vector<Scalar> copy_rou_first = rou_first;
+                    std::partial_sort(copy_rou_first.begin(), copy_rou_first.begin() + 5, copy_rou_first.end());
+                    Scalar fifth_smallest_rou = copy_rou_first[4];
+                    // delete indices j that rou_j is bigger than or equal to the 5th smallest rou
+                    for (int j=0; j<J_triangular_first.size(); j++) {
+                        if (rou[j] <= fifth_smallest_rou) { 
+                            J_triangular_second.push_back(J_triangular_first[j]); 
+                            rou_second.push_back(rou_first[j]);
+                        }
+                    }
+                    J_triangular.swap(J_triangular_second);
+                } else {
+                    J_triangular.swap(J_triangular_first);
+                }
                 
 
                 // (g) Determine the new indices I_triangular

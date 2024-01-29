@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
     inputFile.close();
     
 
-    std::cout << "Reading matrix A..." << std::endl;
+    std::cout << "Reading matrix A......" << std::endl;
     SpMat A;
     Eigen::loadMarket(A, path);
     const unsigned size = A.rows();
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Norm of skew-symmetric part: " << B.norm() << std::endl;
 
     // get M
-    std::cout << "Creating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)..." << std::endl;
+    std::cout << "\nCreating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)......" << std::endl;
     SpMat M(size, size);
     int max_iter; 
     std::stringstream(argv[2]) >> max_iter;
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     identityMatrix.setIdentity();
     std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix ).norm() << std::endl;
 
-    std::cout << "Using iterative solvers......" << std::endl;
+    std::cout << "\nUsing iterative solvers......" << std::endl;
 
 
     // 1) with Eigen CG

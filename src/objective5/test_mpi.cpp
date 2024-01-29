@@ -32,7 +32,7 @@ static double c_start, c_diff;
 #define toc()                                                                \
   {                                                                          \
     c_diff = MPI_Wtime() - c_start;                                          \
-    std::cout << "Time taken by SPAI_MPI: " << c_diff << " microseconds\n";  \
+    std::cout << "--Time taken by SPAI_MPI: " << c_diff << " microseconds\n";  \
   }
 
 int main(int argc, char *argv[]) {
@@ -80,6 +80,8 @@ int main(int argc, char *argv[]) {
 
     // Check A properties
     if (world_rank == 0) {
+        std::cout << "Reading matrix A......" << std::endl;
+        std::cout << "A has been loaded successfully" << std::endl;
         // std::cout << "\nmatrix A:\n" << A << "\n"; 
         std::cout << "Matrix size:"<< A.rows() << " X " << A.cols() << std::endl;
         std::cout << "Non zero entries:" << A.nonZeros() << std::endl;
@@ -93,17 +95,22 @@ int main(int argc, char *argv[]) {
     int max_iter; 
     double epsilon;
     if (world_rank == 0) {
-        std::cout << "Creating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)..." << std::endl;
+        std::cout << "\nCreating the Matrix M(THE PRECONDITIONING OF A WITH SPARSE APPROXIMATE INVERSES)......" << std::endl;
         std::stringstream(argv[2]) >> max_iter;
         std::stringstream(argv[3]) >> epsilon;
     }
     MPI_Bcast(&max_iter, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&epsilon, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
-    tic();
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+    MPI_Barrier(MPI_COMM_WORLD);
     LinearAlgebra::SPAI_MPI<decltype(A), decltype(epsilon)>(A, M, max_iter, epsilon, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
     if (world_rank == 0) {
-        toc();
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        std::cout << "Time taken by SPAI_MPI: " << duration.count() << " microseconds" << std::endl;
     }
 
     // iterative solvers
@@ -114,7 +121,7 @@ int main(int argc, char *argv[]) {
         identityMatrix.setIdentity();
         std::cout << "(M*A-identityMatrix).norm() =  "<< (M*A-identityMatrix ).norm() << std::endl;
 
-        std::cout << "Using iterative solvers......" << std::endl;
+        std::cout << "\nUsing iterative solvers......" << std::endl;
 
 
         // 1) with Eigen CG
