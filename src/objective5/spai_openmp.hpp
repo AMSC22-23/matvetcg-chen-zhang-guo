@@ -71,7 +71,9 @@ void getBlockByTwoIndicesSet(const Matrix&A, Eigen::MatrixXd &AIJ,
         for (int j=0; j<n2; j++) {
             AIJ(i,j) = A.coeff(I[i], J[j]);
         }
-    }
+    }//@note if it is used many time, maybe a class method is better than a function
+// in the class you may store the state of the computation and avoid recomputin
+
 
 }
 
@@ -117,7 +119,10 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
     std::unique_ptr<Eigen::VectorXd> m_k_triangular_ptr = std::make_unique<Eigen::VectorXd>(n2);
     *m_k_triangular_ptr = R.inverse() * c_triangular_ptr->segment(0,n2-1);
     // m_k
-    int index = 0;
+    int index = 0;//@note if it is used many time, maybe a class method is better than a function
+// in the class you may store the state of the computation and avoid recomputin
+
+    //@note why this loops ar enote made aprallel? It seems simple to do it.
     for (int i=0; i<Size; i++) {
         if (index<n2 && J[index]==i) {
             m_k[i] = (*m_k_triangular_ptr)(index);
@@ -131,7 +136,9 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
     for (int i=0; i<Size; i++) {
         for (int j=0; j<n2; j++) {
             (*AJ_ptr)(i,j) = A.coeff(i, J[j]);
-        }
+        }//@note if it is used many time, maybe a class method is better than a function
+// in the class you may store the state of the computation and avoid recomputin
+
     }
     // r
     if (flag==0) { r = (*AJ_ptr) * (*m_k_triangular_ptr) - e_k;} 
@@ -165,9 +172,18 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
         std::cout << "The initial sparsity of M which is chosen to be diagonal..." << std::endl;
         const Scalar diagonal_value = 1;
         const Scalar zero = 0;
+        //@note this is a very simple loop that can be parallelized
+        // just by changing a little the logic:
+        // M.resize(Size, Size);
+        // M.setZero();;
+        // #pragma omp parallel for
+        // for (int i=0; i<Size; i++) {
+        //     M.insert(i, i) = diagonal_value;
+        // }
         for (int i=0; i<Size; i++) {
             for (int j=0; j<Size; j++) {
                 if (i==j) { M.insert(i, j) = diagonal_value; }
+                //@note no need to insert zero in a sparse matrix!
                 else { M.insert(i,j) = zero; } 
             }
         }
@@ -192,6 +208,9 @@ int SPAI_OPENMP(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon) 
         #pragma omp parallel for
 
         // for every column of M
+        //@note this is not the correct way to traverse a sparse matrix
+        // it is very inefficient.
+        // look at the Eigen documentation.
         for (int k=0; k<Size; k++) {
             // (a) 
             // J be the set of indices j such that m_k(j) != 0

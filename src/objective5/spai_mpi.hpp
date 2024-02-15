@@ -342,9 +342,9 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
                     std::unique_ptr<Eigen::VectorXd> aej_ev_ptr = std::make_unique<Eigen::VectorXd>(Size);
                     *aej_ev_ptr = *aej_ptr;
                     Scalar m1 = r_ptr->dot(*aej_ev_ptr);
-                    Scalar m2 = std::pow(aej_ev_ptr->norm(),2);
+                    Scalar m2 = std::pow(aej_ev_ptr->norm(),2); //@note dont use pow, just multiply, its more efficient
                     Scalar miu_j = m1 / m2;
-                    Scalar rou_j = std::pow(r_ptr->norm(),2) + miu_j*(r_ptr->dot(*aej_ev_ptr));
+                    Scalar rou_j = std::pow(r_ptr->norm(),2) + miu_j*(r_ptr->dot(*aej_ev_ptr)); //@note as above.
                     rou.push_back(rou_j);
                 }
                 // (f)
@@ -371,6 +371,9 @@ int SPAI_MPI(const Matrix &A, Matrix &M, const int max_iter, Scalar epsilon, MPI
                     std::partial_sort(copy_rou_first.begin(), copy_rou_first.begin() + 5, copy_rou_first.end());
                     Scalar fifth_smallest_rou = copy_rou_first[4];
                     // delete indices j that rou_j is bigger than or equal to the 5th smallest rou
+                    //@note with push_back/emplace_back you do many memory reallocations
+                    // sometimes it is better to do an extra loop just to find the size and then
+                    // reserve the space using the method reserve(). 
                     for (int j=0; j<J_triangular_first.size(); j++) {
                         if (rou[j] <= fifth_smallest_rou) { 
                             J_triangular_second.push_back(J_triangular_first[j]); 

@@ -107,6 +107,12 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
     int n1 = I.size();
     int n2 = J.size();
     // e_k_triangular = e_k(I)
+    //@note There is no advantage here to use a unique_ptr, you can just use a normal automatic variable
+    // auto e_k_triangular=Eigen::VectorXd::Zero(n1);
+    // or 
+    // Eigen::VectorXd e_k_triangular{n1};
+    // I do not see any advantage here of using unique_ptr.
+    //
     std::unique_ptr<Eigen::VectorXd> e_k_triangular_ptr = std::make_unique<Eigen::VectorXd>(n1);
     for (int i=0; i<n1; i++) {
        (*e_k_triangular_ptr)(i) = e_k[I[i]];
@@ -130,6 +136,7 @@ void computeRAndMk(const Matrix&A, const int Size, const Eigen::MatrixXd &Q,
     }
     // std::cout << "m_k = \n" << m_k << std::endl;
     // AJ be the A(.,J)
+    //@note as before ...
     std::unique_ptr<Eigen::MatrixXd> AJ_ptr = std::make_unique<Eigen::MatrixXd>(Size, n2);
     for (int i=0; i<Size; i++) {
         for (int j=0; j<n2; j++) {
